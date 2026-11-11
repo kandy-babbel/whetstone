@@ -1,0 +1,19 @@
+schema_version: '1.0'
+extension:
+  id: whetstone-review
+  name: 'Whetstone: review'
+  version: 0.3.0
+  description: Instructions that turn a pr-review-toolkit review into findings.json (cc-review Finding
+    format).
+  author: Kirill Andriychuk
+  license: MIT
+requires:
+  speckit_version: '>=1.3.3'
+provides:
+  templates:
+  - name: reviewer
+    file: reviewer.md
+    description: What the review step writes and how severities map
+tags:
+- review
+- whetstone

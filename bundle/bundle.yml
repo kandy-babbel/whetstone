@@ -1,0 +1,48 @@
+schema_version: '1.0'
+bundle:
+  id: whetstone
+  name: Whetstone
+  version: 0.3.0
+  role: developer
+  description: Review a branch with pr-review-toolkit, drop bikeshedding, choose patch or class fixes, and fix within the PR until nothing important is left.
+  author: Kirill Andriychuk
+  license: MIT
+requires:
+  speckit_version: '>=1.3.3'
+  tools:
+  - git
+  - uv
+  - claude
+  mcp: []
+integration:
+  id: claude
+provides:
+  extensions:
+  - id: whetstone-core
+    version: 0.3.0
+  - id: whetstone-review
+    version: 0.3.0
+  - id: whetstone-triage
+    version: 0.3.0
+  - id: whetstone-shim-check
+    version: 0.3.0
+  - id: whetstone-apply
+    version: 0.3.0
+  steps:
+  - id: decision
+    version: 0.9.0
+  workflows:
+  - id: whetstone-review
+    version: 0.3.0
+  - id: whetstone-triage
+    version: 0.3.0
+  - id: whetstone-shim-check
+    version: 0.3.0
+  - id: whetstone-apply
+    version: 0.3.0
+  - id: whetstone
+    version: 0.3.0
+tags:
+- review
+- workflow
+- claude

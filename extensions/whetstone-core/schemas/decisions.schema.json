@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://whetstone.invalid/schemas/decisions.schema.json",
+  "title": "Apply decisions",
+  "description": "Output of the apply module: what was done about each actionable finding, and the test results.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "round",
+    "tests",
+    "decisions"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "whetstone.decisions/1"
+    },
+    "round": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "tests": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "command -> result summary, one entry per command in whetstone-apply-config.yml's checks (empty when there are none)"
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "finding_id",
+          "decision",
+          "reason",
+          "files_changed"
+        ],
+        "properties": {
+          "finding_id": {
+            "type": "string",
+            "pattern": "^FINDING-[0-9]+$"
+          },
+          "decision": {
+            "enum": [
+              "fix",
+              "reject",
+              "defer",
+              "clarify"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "files_changed": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    }
+  }
+}

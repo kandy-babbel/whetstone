@@ -1,0 +1,42 @@
+# whetstone-shim-check
+
+Decides how big each fix should be before anything is changed. An agent names
+the finding's defect class, searches the repository for other occurrences, and
+chooses:
+
+- `local_fix`: the defect is isolated; fix it where reported.
+- `class_fix`: the same defect occurs elsewhere in the PR's files, or shares a
+  cause there. A patch or shim at the reported line would leave the class in
+  place.
+- `simpler_than_suggested`: the reviewer's suggested fix is larger than the
+  problem warrants.
+
+It changes no code.
+
+## Contract
+
+- **Reads:** `.review/current/findings.json`, `summary.json` (`actionable_ids`),
+  `pr-files.txt`.
+- **Writes:** `.review/current/shim-check.json`
+  (`whetstone-core/schemas/shim-check.schema.json`). For each actionable finding:
+  - `defect_class`;
+  - `occurrences`, each with `file`, `line_start`, `in_pr` and `note`;
+  - `strategy`;
+  - `rationale`.
+
+An occurrence is where the defect *is*, not where the fix will land. Occurrences
+outside the PR's files become follow-ups in `.review/report.json`. They are never
+fixed in the PR.
+
+When switched off (`--input shim_check=false` on `whetstone`), no file is
+written and the apply step treats every finding as a local fix.
+
+## Use on its own
+
+```bash
+specify workflow run whetstone-shim-check
+```
+
+## Requirements
+
+Claude Code; whetstone-core.

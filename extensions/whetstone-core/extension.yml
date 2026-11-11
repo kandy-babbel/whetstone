@@ -1,0 +1,25 @@
+schema_version: '1.0'
+extension:
+  id: whetstone-core
+  name: 'Whetstone: core'
+  version: 0.3.0
+  description: Schemas for the loop's module contracts and the deterministic checker that validates them,
+    applies fallbacks for switched-off modules, and commits each round.
+  author: Kirill Andriychuk
+  license: MIT
+requires:
+  speckit_version: '>=1.3.3'
+provides:
+  config:
+  - name: whetstone-core-config.yml
+    template: whetstone-core-config.template.yml
+    description: Base ref the loop reviews against
+  scripts:
+  - name: whetstone
+    file: scripts/whetstone.py
+    description: setup, begin-round, validate, summarize, check-apply, finish
+    runtimes:
+    - python
+tags:
+- review
+- whetstone

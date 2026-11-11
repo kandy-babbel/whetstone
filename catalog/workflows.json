@@ -1,0 +1,71 @@
+{
+ "schema_version": "1.0",
+ "updated_at": "2026-11-11T10:18:34Z",
+ "workflows": {
+  "whetstone-apply": {
+   "id": "whetstone-apply",
+   "name": "Whetstone: apply",
+   "description": "Fix, reject, defer or escalate each actionable finding and write .review/current/decisions.json",
+   "author": "Kirill Andriychuk",
+   "version": "0.3.0",
+   "url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.3.0/whetstone-apply-0.3.0.yml",
+   "sha256": "634129ea3815ae9f12b017937add183126a0539d37e20be1ab73f6d6bdf50318",
+   "requires": {
+    "speckit_version": ">=1.3.3"
+   },
+   "license": "MIT"
+  },
+  "whetstone-review": {
+   "id": "whetstone-review",
+   "name": "Whetstone: review",
+   "description": "Review the branch with pr-review-toolkit and write .review/current/findings.json (cc-review Findings)",
+   "author": "Kirill Andriychuk",
+   "version": "0.3.0",
+   "url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.3.0/whetstone-review-0.3.0.yml",
+   "sha256": "dc09e05ee5dc7a9dd897bf3a8d384be2fe0d4c28b2258eaf50458319f0f3390c",
+   "requires": {
+    "speckit_version": ">=1.3.3"
+   },
+   "license": "MIT"
+  },
+  "whetstone-shim-check": {
+   "id": "whetstone-shim-check",
+   "name": "Whetstone: shim check",
+   "description": "Decide the defect class, other occurrences and fix strategy of each actionable finding; write .review/current/shim-check.json",
+   "author": "Kirill Andriychuk",
+   "version": "0.3.0",
+   "url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.3.0/whetstone-shim-check-0.3.0.yml",
+   "sha256": "7c4b9582bfce0343dd7d895e31f9c74d0a20575737700e36689e204e1f85b151",
+   "requires": {
+    "speckit_version": ">=1.3.3"
+   },
+   "license": "MIT"
+  },
+  "whetstone-triage": {
+   "id": "whetstone-triage",
+   "name": "Whetstone: triage",
+   "description": "Decide with the decision step whether each blocking finding is bikeshedding; write .review/current/triage.json",
+   "author": "Kirill Andriychuk",
+   "version": "0.3.0",
+   "url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.3.0/whetstone-triage-0.3.0.yml",
+   "sha256": "7e4646448f27e1fc3c3c71e3859d5fb0f0b5037ada9932473333260d5f9299b0",
+   "requires": {
+    "speckit_version": ">=1.3.3"
+   },
+   "license": "MIT"
+  },
+  "whetstone": {
+   "id": "whetstone",
+   "name": "Whetstone",
+   "description": "Review a branch with pr-review-toolkit, drop bikeshedding, choose patch or class fixes, and fix within the PR until nothing important is left.",
+   "author": "Kirill Andriychuk",
+   "version": "0.3.0",
+   "url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.3.0/whetstone-0.3.0.yml",
+   "sha256": "dd2b84cf497c03e40126c5b97386423e7149f20cca04c87dbb6c551ba87ee5a2",
+   "requires": {
+    "speckit_version": ">=1.3.3"
+   },
+   "license": "MIT"
+  }
+ }
+}

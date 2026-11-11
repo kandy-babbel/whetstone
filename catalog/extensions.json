@@ -1,0 +1,87 @@
+{
+ "schema_version": "1.0",
+ "updated_at": "2026-11-11T10:18:34Z",
+ "catalog_url": "https://raw.githubusercontent.com/kandy-babbel/whetstone/main/catalog/extensions.json",
+ "extensions": {
+  "whetstone-apply": {
+   "id": "whetstone-apply",
+   "name": "Whetstone: apply",
+   "description": "Fixes, rejects, defers or escalates each actionable finding within the PR's files, runs the checks, and records the decisions.",
+   "author": "Kirill Andriychuk",
+   "version": "0.3.0",
+   "download_url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.3.0/whetstone-apply-0.3.0.zip",
+   "sha256": "3fb86b1f9c9b8cca5538381298c4a624f5ba86d2383f1882a55db24d3642805a",
+   "license": "MIT",
+   "requires": {
+    "speckit_version": ">=1.3.3"
+   },
+   "tags": [
+    "whetstone"
+   ]
+  },
+  "whetstone-core": {
+   "id": "whetstone-core",
+   "name": "Whetstone: core",
+   "description": "Schemas for the loop's module contracts and the deterministic checker that validates them, applies fallbacks for switched-off modules, and commits each round.",
+   "author": "Kirill Andriychuk",
+   "version": "0.3.0",
+   "download_url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.3.0/whetstone-core-0.3.0.zip",
+   "sha256": "2ce2459bef0b06ca8ae236aefa28a857de43f548cbc31cda68de17b95c7773ff",
+   "license": "MIT",
+   "requires": {
+    "speckit_version": ">=1.3.3"
+   },
+   "tags": [
+    "whetstone"
+   ]
+  },
+  "whetstone-review": {
+   "id": "whetstone-review",
+   "name": "Whetstone: review",
+   "description": "Instructions that turn a pr-review-toolkit review into findings.json (cc-review Finding format).",
+   "author": "Kirill Andriychuk",
+   "version": "0.3.0",
+   "download_url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.3.0/whetstone-review-0.3.0.zip",
+   "sha256": "fc5652ffc4e5aec479ba307ff4c86c1daafde35daf57836ed733a86586e9d4ff",
+   "license": "MIT",
+   "requires": {
+    "speckit_version": ">=1.3.3"
+   },
+   "tags": [
+    "whetstone"
+   ]
+  },
+  "whetstone-shim-check": {
+   "id": "whetstone-shim-check",
+   "name": "Whetstone: shim check",
+   "description": "Finds where else each actionable finding's defect class occurs and decides between a local fix, a class fix, or a fix simpler than the reviewer suggested.",
+   "author": "Kirill Andriychuk",
+   "version": "0.3.0",
+   "download_url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.3.0/whetstone-shim-check-0.3.0.zip",
+   "sha256": "a12aac4df43aa4e3c1376fb0e8dadab65183195cd8e6d390360cc740ccbb7e71",
+   "license": "MIT",
+   "requires": {
+    "speckit_version": ">=1.3.3"
+   },
+   "tags": [
+    "whetstone"
+   ]
+  },
+  "whetstone-triage": {
+   "id": "whetstone-triage",
+   "name": "Whetstone: triage",
+   "description": "Evidence gathering and result collection for deciding, with a decision model, whether each blocking finding is bikeshedding.",
+   "author": "Kirill Andriychuk",
+   "version": "0.3.0",
+   "download_url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.3.0/whetstone-triage-0.3.0.zip",
+   "sha256": "e980ef2cc70f8baa6352e81ce4fbd9a7f265aad6053fa867c1fff04edaf6d461",
+   "license": "MIT",
+   "requires": {
+    "speckit_version": ">=1.3.3"
+   },
+   "tags": [
+    "whetstone"
+   ]
+  }
+ }
+}

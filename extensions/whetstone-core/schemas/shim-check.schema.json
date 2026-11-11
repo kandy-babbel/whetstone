@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://whetstone.invalid/schemas/shim-check.schema.json",
+  "title": "Shim check results",
+  "description": "Output of the shim-check module: the defect class of each actionable finding, where else it occurs, and how big the fix should be.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "round",
+    "results"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "whetstone.shim-check/1"
+    },
+    "round": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "finding_id",
+          "defect_class",
+          "occurrences",
+          "strategy",
+          "rationale"
+        ],
+        "properties": {
+          "finding_id": {
+            "type": "string",
+            "pattern": "^FINDING-[0-9]+$"
+          },
+          "defect_class": {
+            "type": "string",
+            "minLength": 1
+          },
+          "occurrences": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "file",
+                "line_start",
+                "in_pr"
+              ],
+              "properties": {
+                "file": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "line_start": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "in_pr": {
+                  "type": "boolean"
+                },
+                "note": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Locations where the defect class is present (including the reported one), not where the fix will land. Occurrences with in_pr false become follow-ups."
+          },
+          "strategy": {
+            "enum": [
+              "local_fix",
+              "class_fix",
+              "simpler_than_suggested"
+            ]
+          },
+          "rationale": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

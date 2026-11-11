@@ -1,0 +1,7 @@
+# Repository settings for whetstone-core.
+# Spec Kit copies this file to .specify/extensions/whetstone-core/whetstone-core-config.yml
+# when the extension is installed and never overwrites that copy. Edit and commit the copy.
+
+# The branch pull requests merge into. The loop reviews the changes since the
+# merge-base of HEAD and this ref.
+base_ref: origin/main

@@ -1,0 +1,7 @@
+# Repository settings for whetstone-apply.
+# Spec Kit copies this file to .specify/extensions/whetstone-apply/whetstone-apply-config.yml
+# when the extension is installed and never overwrites that copy. Edit and commit the copy.
+
+# Commands the apply step must make pass after its fixes, run from the repository root.
+# With an empty list the apply step runs no checks.
+checks: []

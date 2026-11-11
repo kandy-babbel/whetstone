@@ -1,0 +1,19 @@
+schema_version: '1.0'
+extension:
+  id: whetstone-shim-check
+  name: 'Whetstone: shim check'
+  version: 0.3.0
+  description: Finds where else each actionable finding's defect class occurs and decides between a local
+    fix, a class fix, or a fix simpler than the reviewer suggested.
+  author: Kirill Andriychuk
+  license: MIT
+requires:
+  speckit_version: '>=1.3.3'
+provides:
+  commands:
+  - name: speckit.whetstone-shim-check.run
+    file: commands/run.md
+    description: Write shim-check.json for the actionable findings of a round
+tags:
+- review
+- whetstone

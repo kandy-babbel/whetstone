@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://whetstone.invalid/schemas/triage.schema.json",
+  "title": "Triage results",
+  "description": "Output of the triage module: whether each blocking finding is bikeshedding.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "round",
+    "backend",
+    "threshold",
+    "results"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "whetstone.triage/1"
+    },
+    "round": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "backend": {
+      "type": "string",
+      "minLength": 1
+    },
+    "threshold": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "finding_id",
+          "p_bikeshedding",
+          "basis",
+          "dismissed"
+        ],
+        "properties": {
+          "finding_id": {
+            "type": "string",
+            "pattern": "^FINDING-[0-9]+$"
+          },
+          "p_bikeshedding": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "basis": {
+            "enum": [
+              "ci_check",
+              "repo_rule",
+              "correctness",
+              "security",
+              "test_coverage",
+              "doc_accuracy",
+              "taste"
+            ]
+          },
+          "basis_probabilities": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            }
+          },
+          "dismissed": {
+            "type": "boolean",
+            "description": "p_bikeshedding >= threshold and basis is taste"
+          }
+        }
+      }
+    }
+  }
+}

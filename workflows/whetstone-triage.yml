@@ -1,0 +1,72 @@
+schema_version: '1.0'
+workflow:
+  id: whetstone-triage
+  name: 'Whetstone: triage'
+  version: 0.3.0
+  author: Kirill Andriychuk
+  description: Decide with the decision step whether each blocking finding is bikeshedding; write .review/current/triage.json
+requires:
+  speckit_version: '>=1.3.3'
+inputs:
+  threshold:
+    type: number
+    default: 0.5
+steps:
+- id: gather
+  type: shell
+  output_format: json
+  run: uv run --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 .specify/extensions/whetstone-triage/scripts/gather.py
+- id: decide
+  type: fan-out
+  items: '{{ steps.gather.output.data.items }}'
+  max_concurrency: 4
+  step:
+    id: one
+    type: decision
+    state:
+      finding_id: '{{ item.id }}'
+    files:
+    - '{{ item.evidence }}'
+    questions:
+      bikeshedding:
+        type: noul
+        instructions: 'Is this code review finding bikeshedding?
+
+
+          Bikeshedding: the finding asks for a change of style, naming, wording, comment length or formatting that
+          no rule in the repository''s rules, no setting in its tool configuration and no CI check requires, and
+          that does not affect correctness, security, test coverage of behaviour, or whether documentation states
+          something true.
+
+
+          Not bikeshedding (legitimate): the finding is about a bug, a security or reliability risk, missing or
+          weak tests for behaviour, documentation or comments that state something false or stale, or anything a
+          CI check (for example a formatter check, lint, typecheck, tests) would fail on, or a repository rule requires.
+
+
+          Judge only from the evidence given: the finding, the code at the commit it was made against, the CI checks,
+          the repository rules and the tool configuration.'
+      basis:
+        type: choice
+        instructions: Which single consideration decides whether this finding matters?
+        criteria:
+          ci_check: A CI check (formatter check, lint, typecheck, tests) would fail on it
+          repo_rule: A rule in the repository's rules requires it
+          correctness: It is about a bug or wrong behaviour
+          security: It is about a security or reliability risk
+          test_coverage: It is about missing or weak tests for behaviour
+          doc_accuracy: Documentation or a comment states something false or stale
+          taste: None of the above; it is a matter of style or preference
+- id: collect
+  type: shell
+  output_format: json
+  run: uv run --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 .specify/extensions/whetstone-triage/scripts/collect.py
+  env:
+    RESULTS: '{{ steps.decide.output.results | to_json }}'
+    THRESHOLD: t={{ inputs.threshold }}
+    BACKEND: decision
+- id: validate
+  type: shell
+  output_format: json
+  run: uv run --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 .specify/extensions/whetstone-core/scripts/whetstone.py validate
+    triage.schema.json .review/current/triage.json

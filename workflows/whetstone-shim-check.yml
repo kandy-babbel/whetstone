@@ -1,0 +1,22 @@
+schema_version: '1.0'
+workflow:
+  id: whetstone-shim-check
+  name: 'Whetstone: shim check'
+  version: 0.3.0
+  author: Kirill Andriychuk
+  description: Decide the defect class, other occurrences and fix strategy of each actionable finding; write .review/current/shim-check.json
+requires:
+  speckit_version: '>=1.3.3'
+steps:
+- id: shim_check
+  type: command
+  command: speckit.whetstone-shim-check.run
+  integration: claude
+  capture: true
+  capture_max_bytes: -1
+  timeout: 3600
+- id: validate
+  type: shell
+  output_format: json
+  run: uv run --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 .specify/extensions/whetstone-core/scripts/whetstone.py validate
+    shim-check.schema.json .review/current/shim-check.json
