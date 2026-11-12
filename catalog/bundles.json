@@ -1,17 +1,17 @@
 {
  "schema_version": "1.0",
- "updated_at": "2026-11-11T10:18:34Z",
+ "updated_at": "2026-11-12T12:51:25Z",
  "bundles": {
   "whetstone": {
    "id": "whetstone",
    "name": "Whetstone",
-   "version": "0.3.0",
+   "version": "0.4.0",
    "role": "developer",
-   "description": "Review a branch with pr-review-toolkit, drop bikeshedding, choose patch or class fixes, and fix within the PR until nothing important is left.",
+   "description": "Review a change with pr-review-toolkit, drop bikeshedding, size each fix, and check every claim its text makes; a report for the person or agent who fixes it. Reads the repository only.",
    "author": "Kirill Andriychuk",
    "license": "MIT",
-   "download_url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.3.0/whetstone-0.3.0.zip",
-   "sha256": "1f7b4681e74b4b3048e9dc35c091e5a187d3a221e5f23b218e376f886c39e0fb",
+   "download_url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.4.0/whetstone-0.4.0.zip",
+   "sha256": "c9bb67ab8976a2526e1125a042523fc9b51c5cf703d73590e4a48accb5bb4f2c",
    "requires": {
     "speckit_version": ">=1.3.3"
    },
@@ -19,14 +19,23 @@
     "extensions": 5,
     "presets": 0,
     "steps": 1,
-    "workflows": 5
+    "workflows": 8
    },
    "tags": [
     "review",
     "workflow",
     "claude"
    ],
-   "verified": false
+   "verified": false,
+   "releases": {
+    "0.3.0": {
+     "download_url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.3.0/whetstone-0.3.0.zip",
+     "sha256": "1f7b4681e74b4b3048e9dc35c091e5a187d3a221e5f23b218e376f886c39e0fb",
+     "requires": {
+      "speckit_version": ">=1.3.3"
+     }
+    }
+   }
   }
  }
 }

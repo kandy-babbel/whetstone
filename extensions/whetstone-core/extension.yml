@@ -2,9 +2,9 @@ schema_version: '1.0'
 extension:
   id: whetstone-core
   name: 'Whetstone: core'
-  version: 0.3.0
-  description: Schemas for the loop's module contracts and the deterministic checker that validates them,
-    applies fallbacks for switched-off modules, and commits each round.
+  version: 0.4.0
+  description: Schemas for the modules' contracts and the deterministic checker that validates them, applies
+    fallbacks for switched-off modules, takes the agents' answers from the run state, and writes the report.
   author: Kirill Andriychuk
   license: MIT
 requires:
@@ -17,9 +17,28 @@ provides:
   scripts:
   - name: whetstone
     file: scripts/whetstone.py
-    description: setup, begin-round, validate, summarize, check-apply, finish
+    description: setup, guard, fetch, canary-open, canary-check, validate, summarize, report, finish
     runtimes:
     - python
+  - name: lockdown
+    file: scripts/lockdown.py
+    description: the agents' required flags, TMPDIR and integrity checks, pinned git, and text cleaning
+    runtimes:
+    - python
+  - name: runstate
+    file: scripts/runstate.py
+    description: the agents' answers, read from Spec Kit's run state
+    runtimes:
+    - python
+  - name: canary
+    file: scripts/canary.py
+    description: run by the canary agent; tries to write the repository and each protected path
+    runtimes:
+    - python
+  commands:
+  - name: speckit.whetstone-core.canary
+    file: commands/canary.md
+    description: Run the lockdown canary
 tags:
 - review
 - whetstone

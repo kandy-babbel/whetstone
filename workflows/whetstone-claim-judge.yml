@@ -1,0 +1,30 @@
+schema_version: '1.0'
+workflow:
+  id: whetstone-claim-judge
+  name: 'Whetstone: claim check, one judge'
+  version: 0.4.0
+  author: Kirill Andriychuk
+  description: One claim-check judge, for one claim; called per claim by whetstone-claim-check so that a judge's failure leaves its claim unjudged instead of stopping the run
+requires:
+  speckit_version: '>=1.3.3'
+inputs:
+  claim:
+    type: string
+  model:
+    type: string
+    default: sonnet
+steps:
+- id: judge_guard
+  type: shell
+  output_format: json
+  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I .specify/extensions/whetstone-core/scripts/whetstone.py guard
+- id: judge
+  type: command
+  command: speckit.whetstone-claim-check.judge
+  integration: claude
+  model: '{{ inputs.model }}'
+  input:
+    args: '{{ inputs.claim }}'
+  capture: true
+  capture_max_bytes: 4000000
+  timeout: 1800

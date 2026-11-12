@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://whetstone.invalid/schemas/claim-check.schema.json",
+  "title": "Claim check results",
+  "description": "Output of the claim-check module: the claims the text of a change makes, and a verdict on each claim of a judged category (K1: what the repo's own code does; K9: what a test checks), checked against the exact tree the change leaves. A file no reader could read and a claim no judge ruled on are listed, never counted as correct.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "round", "base", "tree", "status", "hunks", "claims", "counts", "not_judged", "unread", "unjudged"],
+  "properties": {
+    "schema_version": {"const": "whetstone.claim-check/1"},
+    "round": {"type": "integer", "minimum": 0, "description": "The run's round; 0 when run on its own."},
+    "base": {"type": "string", "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$", "description": "The commit the change is measured from."},
+    "tree": {"type": "string", "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$", "description": "The tree `git add -A` would record: the working tree the claims were checked against."},
+    "status": {"const": "complete"},
+    "hunks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "file", "new_start", "new_count", "kind"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^H[0-9]+$"},
+          "file": {"type": "string", "minLength": 1},
+          "new_start": {"type": "integer", "minimum": 0},
+          "new_count": {"type": "integer", "minimum": 0},
+          "kind": {"enum": ["CODE", "PROSE", "MIXED", null], "description": "null when no reader labelled the hunk (its file is listed in unread)."}
+        }
+      }
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "file", "line", "quote", "category", "judged", "reused", "verdict"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[0-9a-f]{16}$"},
+          "file": {"type": "string", "minLength": 1},
+          "line": {"type": "integer", "minimum": 1},
+          "quote": {"type": "string", "minLength": 1},
+          "category": {"enum": ["K1", "K2", "K3", "K4", "K5", "K6", "K7", "K8", "K9"]},
+          "judged": {"type": "boolean"},
+          "reused": {"type": "boolean", "description": "The verdict was reused from an earlier check whose cited files are unchanged."},
+          "verdict": {
+            "oneOf": [
+              {"type": "null"},
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["verdict", "basis", "assertions"],
+                "properties": {
+                  "verdict": {"enum": ["CORRECT", "WRONG", "UNSURE"]},
+                  "basis": {"type": "string"},
+                  "assertions": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["text", "confirmed", "evidence"],
+                      "properties": {
+                        "text": {"type": "string"},
+                        "confirmed": {"type": "boolean"},
+                        "evidence": {"type": "string", "description": "path:line citations of the checked tree"}
+                      }
+                    }
+                  },
+                  "failing_case": {"type": "string"},
+                  "gap": {"type": "string"}
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["claims", "judged", "reused", "correct", "wrong", "unsure", "unjudged", "unread"],
+      "properties": {
+        "claims": {"type": "integer", "minimum": 0},
+        "judged": {"type": "integer", "minimum": 0},
+        "reused": {"type": "integer", "minimum": 0},
+        "correct": {"type": "integer", "minimum": 0},
+        "wrong": {"type": "integer", "minimum": 0},
+        "unsure": {"type": "integer", "minimum": 0},
+        "unjudged": {"type": "integer", "minimum": 0},
+        "unread": {"type": "integer", "minimum": 0}
+      }
+    },
+    "not_judged": {
+      "type": "object",
+      "description": "How many claims of each category that is counted, not judged.",
+      "additionalProperties": {"type": "integer", "minimum": 0}
+    },
+    "unread": {
+      "type": "array",
+      "description": "Changed files whose text no reader read: not text, no hunk, or the reader did not answer. A person must look.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "reason"],
+        "properties": {"file": {"type": "string", "minLength": 1}, "reason": {"type": "string"}}
+      }
+    },
+    "unjudged": {
+      "type": "array",
+      "description": "Claims of a judged category with no accepted verdict: the judge did not answer, or its answer broke the rules. A person must look.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "file", "line", "quote", "reason"],
+        "properties": {
+          "id": {"type": "string"},
+          "file": {"type": "string", "minLength": 1},
+          "line": {"type": "integer", "minimum": 1},
+          "quote": {"type": "string"},
+          "reason": {"type": "string"}
+        }
+      }
+    },
+    "warning": {"type": "string"}
+  }
+}

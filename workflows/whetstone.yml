@@ -2,9 +2,9 @@ schema_version: '1.0'
 workflow:
   id: whetstone
   name: Whetstone
-  version: 0.3.0
+  version: 0.4.0
   author: Kirill Andriychuk
-  description: Review a branch with pr-review-toolkit, drop bikeshedding, choose patch or class fixes, and fix within the PR until nothing important is left.
+  description: Review a change with pr-review-toolkit, drop bikeshedding, size each fix, and check every claim its text makes; a report for the person or agent who fixes it. Reads the repository only.
 requires:
   speckit_version: '>=1.3.3'
 inputs:
@@ -14,6 +14,12 @@ inputs:
   shim_check:
     type: boolean
     default: true
+  claim_check:
+    type: boolean
+    default: true
+  claim_model:
+    type: string
+    default: sonnet
   triage_threshold:
     type: number
     default: 0.5
@@ -21,93 +27,68 @@ steps:
 - id: setup
   type: shell
   output_format: json
-  run: uv run --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 .specify/extensions/whetstone-core/scripts/whetstone.py setup
+  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I .specify/extensions/whetstone-core/scripts/whetstone.py setup
   env:
     WHETSTONE_TRIAGE: t={{ inputs.triage }}
-- id: loop
-  type: do-while
-  max_iterations: 3
-  condition: '{{ steps.summary.output.data.actionable > 0 }}'
-  steps:
-  - id: round
-    type: shell
-    output_format: json
-    run: uv run --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 .specify/extensions/whetstone-core/scripts/whetstone.py
-      begin-round
-  - id: review
-    type: workflow
-    workflow: whetstone-review
-  - id: triage_on
-    type: if
-    condition: '{{ inputs.triage }}'
-    then:
-    - id: triage
-      type: workflow
-      workflow: whetstone-triage
-      input:
-        threshold: '{{ inputs.triage_threshold }}'
-  - id: summary
-    type: shell
-    output_format: json
-    run: uv run --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 .specify/extensions/whetstone-core/scripts/whetstone.py
-      summarize
-  - id: needs_fix
-    type: if
-    condition: '{{ steps.summary.output.data.actionable > 0 }}'
-    then:
-    - id: shim_check_on
-      type: if
-      condition: '{{ inputs.shim_check }}'
-      then:
-      - id: shim_check
-        type: workflow
-        workflow: whetstone-shim-check
-    - id: apply
-      type: workflow
-      workflow: whetstone-apply
-    - id: apply_check
-      type: shell
-      output_format: json
-      run: uv run --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 .specify/extensions/whetstone-core/scripts/whetstone.py
-        check-apply
-- id: unreviewed_fixes
+    WHETSTONE_RUN_ID: '{{ context.run_id }}'
+- id: canary
+  type: workflow
+  workflow: whetstone-canary
+- id: review
+  type: workflow
+  workflow: whetstone-review
+- id: triage_on
   type: if
-  condition: '{{ steps.summary.output.data.actionable > 0 }}'
+  condition: '{{ inputs.triage }}'
   then:
-  - id: round_final
-    type: shell
-    output_format: json
-    run: uv run --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 .specify/extensions/whetstone-core/scripts/whetstone.py
-      begin-round
-  - id: review_final
+  - id: triage
     type: workflow
-    workflow: whetstone-review
-  - id: triage_on_final
-    type: if
-    condition: '{{ inputs.triage }}'
-    then:
-    - id: triage_final
-      type: workflow
-      workflow: whetstone-triage
-      input:
-        threshold: '{{ inputs.triage_threshold }}'
-  - id: summary_final
-    type: shell
-    output_format: json
-    run: uv run --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 .specify/extensions/whetstone-core/scripts/whetstone.py
-      summarize
-  - id: still_actionable
-    type: if
-    condition: '{{ steps.summary_final.output.data.actionable > 0 }}'
-    then:
-    - id: human
-      type: gate
-      message: Actionable findings remain after the loop; see .review/current/summary.json and .review/ledger.json.
-      options:
-      - approve
-      - reject
-      on_reject: abort
+    workflow: whetstone-triage
+    input:
+      threshold: '{{ inputs.triage_threshold }}'
+- id: summary
+  type: shell
+  output_format: json
+  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I .specify/extensions/whetstone-core/scripts/whetstone.py summarize
+  env:
+    WHETSTONE_RUN_ID: '{{ context.run_id }}'
+- id: shim_check_on
+  type: if
+  condition: '{{ inputs.shim_check and steps.summary.output.data.actionable > 0 }}'
+  then:
+  - id: shim_check
+    type: workflow
+    workflow: whetstone-shim-check
+- id: claim_check_on
+  type: if
+  condition: '{{ inputs.claim_check }}'
+  then:
+  - id: claim_check
+    type: workflow
+    workflow: whetstone-claim-check
+    input:
+      model: '{{ inputs.claim_model }}'
+- id: report
+  type: shell
+  output_format: json
+  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I .specify/extensions/whetstone-core/scripts/whetstone.py report
+  env:
+    WHETSTONE_RUN_ID: '{{ context.run_id }}'
+- id: needs_human
+  type: if
+  condition: '{{ steps.report.output.data.needs_human }}'
+  then:
+  - id: claims_gate
+    type: gate
+    message: '{{ steps.report.output.data.message }}'
+    options:
+    - approve
+    - reject
+    on_reject: abort
 - id: finish
   type: shell
   output_format: json
-  run: uv run --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 .specify/extensions/whetstone-core/scripts/whetstone.py finish
+  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I .specify/extensions/whetstone-core/scripts/whetstone.py finish
+  env:
+    WHETSTONE_GATE: '{{ steps.claims_gate.output.choice | default("") }}'
+    WHETSTONE_RUN_ID: '{{ context.run_id }}'

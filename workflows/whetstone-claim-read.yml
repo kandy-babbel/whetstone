@@ -1,0 +1,30 @@
+schema_version: '1.0'
+workflow:
+  id: whetstone-claim-read
+  name: 'Whetstone: claim check, one reader'
+  version: 0.4.0
+  author: Kirill Andriychuk
+  description: One claim-check reader, for one batch of hunks; called per batch by whetstone-claim-check so that a reader's failure leaves its files unread instead of stopping the run
+requires:
+  speckit_version: '>=1.3.3'
+inputs:
+  batch:
+    type: string
+  model:
+    type: string
+    default: sonnet
+steps:
+- id: read_guard
+  type: shell
+  output_format: json
+  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I .specify/extensions/whetstone-core/scripts/whetstone.py guard
+- id: read
+  type: command
+  command: speckit.whetstone-claim-check.read
+  integration: claude
+  model: '{{ inputs.model }}'
+  input:
+    args: '{{ inputs.batch }}'
+  capture: true
+  capture_max_bytes: 4000000
+  timeout: 1800

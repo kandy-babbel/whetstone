@@ -2,26 +2,38 @@ schema_version: '1.0'
 workflow:
   id: whetstone-review
   name: 'Whetstone: review'
-  version: 0.3.0
+  version: 0.4.0
   author: Kirill Andriychuk
-  description: Review the branch with pr-review-toolkit and write .review/current/findings.json (cc-review Findings)
+  description: Review the change with pr-review-toolkit and write .review/current/findings.json (cc-review Findings). Reads the repository only.
 requires:
   speckit_version: '>=1.3.3'
 steps:
+- id: review_guard
+  type: shell
+  output_format: json
+  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I .specify/extensions/whetstone-core/scripts/whetstone.py guard
 - id: review
   type: prompt
   integration: claude
   capture: true
-  capture_max_bytes: -1
+  capture_max_bytes: 8000000
   timeout: 3600
   prompt: '/pr-review-toolkit:review-pr all applicable reviews, but do not run code-simplifier. Review every change
-    on this branch: `git diff <base>...HEAD`, where <base> is the commit in .review/base (committed changes, not the working tree). When every agent
-    has finished, write .review/current/findings.json exactly as .specify/extensions/whetstone-review/reviewer.md specifies
-    (read it first).
+    from the commit in .review/base to the working tree: `git diff <base>` plus untracked files, uncommitted changes
+    included. The repository is read-only for you. When every agent has finished, reply with the findings as
+    .specify/extensions/whetstone-review/reviewer.md specifies (read it first): one JSON document as your final
+    answer, nothing else.
 
     '
+- id: review_fetch
+  type: shell
+  output_format: json
+  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I .specify/extensions/whetstone-core/scripts/whetstone.py
+    fetch findings.json --prompt /pr-review-toolkit:review-pr
+  env:
+    WHETSTONE_RUN_ID: '{{ context.run_id }}'
 - id: validate
   type: shell
   output_format: json
-  run: uv run --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 .specify/extensions/whetstone-core/scripts/whetstone.py validate
-    findings.schema.json .review/current/findings.json
+  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I .specify/extensions/whetstone-core/scripts/whetstone.py
+    validate findings.schema.json .review/current/findings.json

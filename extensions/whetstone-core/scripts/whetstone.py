@@ -1,21 +1,27 @@
 #!/usr/bin/env python3
 """Deterministic core of Whetstone.
 
-Modules exchange files under .review/current/, each checked against its JSON
-Schema in ../schemas/. A module that is switched off writes no file; this script
-then applies that module's documented fallback. Every subcommand prints one
-JSON object (read by Spec Kit with output_format: json) and exits 1 when a
-contract is broken, which fails the step and the run.
+Modules exchange files under .review/current/, each checked against its JSON Schema in ../schemas/. Agents answer
+on standard output; `fetch` takes an answer from Spec Kit's run state into .review/current/. A module that is
+switched off writes no file; this script then applies that module's documented fallback. Every subcommand prints one
+JSON object (read by Spec Kit with output_format: json) and exits 1 when a contract is broken, which fails the step
+and the run. Whetstone changes nothing in the repository: it writes only .review/.
 
-Run with: uv run --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 whetstone.py <cmd>
+Run with: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I whetstone.py <cmd>
 Repository settings: whetstone-core-config.yml next to this extension (base_ref).
 
-  setup         check the working tree, archive an earlier run, record the base commit, start the ledger
-  begin-round   archive the previous round, start a new one, list the PR's files
-  validate      validate one file against one schema: validate <schema> <file>
-  summarize     validate findings (+ triage if present), count actionable findings
-  check-apply   validate shim-check (if present) and decisions, check them against the code, commit
-  finish        write .review/report.json: dismissed, rejected, deferred, follow-ups, warnings
+  setup                      check the lockdown, TMPDIR and the integrity of .claude/ and .specify/; archive an earlier
+                             run; record the base commit and the change's files; start the ledger
+  guard                      before every agent step: the lockdown flags and the integrity check again
+  fetch <file> --command C [--args A] | --prompt P
+                             after an agent step: its answer, taken from the run state into .review/current/<file>
+  canary-open                a nonce for the canary agent
+  canary-check               the canary agent must have run its script with that nonce, and no protected path may
+                             have been written
+  validate <schema> <file>   validate one file against one schema
+  summarize                  validate findings (+ triage if present), count actionable findings
+  report                     write .review/report.json; say whether a person must look (WRONG, unread, unjudged claims)
+  finish                     record the gate's answer, if there was one
 """
 import datetime, json, os, shutil, subprocess, sys, time
 from pathlib import Path
@@ -25,12 +31,18 @@ from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
 from referencing.jsonschema import DRAFT202012
 
+sys.dont_write_bytecode = True  # no __pycache__ under .specify/: it would fail the integrity check
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import lockdown, runstate  # noqa: E402
+
 R = Path(".review")
 CUR = R / "current"
 EXT = Path(__file__).resolve().parent.parent
 SCHEMAS = EXT / "schemas"
 CONFIG = EXT / "whetstone-core-config.yml"
 BLOCKING = {"Critical", "Important"}
+CANARY_COMMAND = "speckit.whetstone-core.canary"
+LEDGER_KEYS = ("dismissed", "follow_ups", "warnings", "claims_wrong", "claim_notes", "unread", "unjudged", "gate")
 
 
 def out(obj, code=0):
@@ -43,18 +55,19 @@ def fail(msg, **extra):
     out({"valid": False, "error": msg, **extra}, 1)
 
 
-def git(*args):
-    return subprocess.run(["git", *args], check=True, capture_output=True, text=True).stdout.strip()
+git = lockdown.git
 
 
 def git_paths(*args):
     """Paths from a git command run with -z, so names with spaces or non-ASCII characters survive."""
-    out_ = subprocess.run(["git", *args, "-z"], check=True, capture_output=True, text=True).stdout
+    out_ = subprocess.run(lockdown.git_cmd(*args, "-z"), check=True, capture_output=True, text=True,
+                          env=lockdown.git_env()).stdout
     return [p for p in out_.split("\0") if p]
 
 
 def round_no():
-    return int((R / "round").read_text())
+    p = R / "round"
+    return int(p.read_text()) if p.exists() else 0  # 0: a module run on its own, with no setup step
 
 
 _registry = None
@@ -72,7 +85,7 @@ def validate(schema_name, path, fresh=True):
     if not path.exists():
         fail(f"{path} missing (the step that should write it wrote nothing)")
     if fresh and path.stat().st_mtime < float((CUR / ".started").read_text()):
-        fail(f"{path} is older than this round")
+        fail(f"{path} is older than this run")
 
     def bad_const(c):
         raise ValueError(f"non-standard JSON constant {c}")
@@ -100,12 +113,33 @@ def save_ledger(l):
 
 def record(l, key, entry):
     """Append to the ledger once: a retried or resumed step does not record the same entry twice."""
-    ident = (entry.get("round"), entry.get("finding_id"), entry.get("file"))
-    if not any((e.get("round"), e.get("finding_id"), e.get("file")) == ident for e in l.setdefault(key, [])):
+    def ident(e):
+        return e.get("finding_id"), e.get("file"), e.get("line_start"), e.get("claim_id"), e.get("reason")
+    if not any(ident(e) == ident(entry) for e in l.setdefault(key, [])):
         l[key].append(entry)
 
 
+def lockdown_errors(*, fresh_tmpdir=False):
+    return lockdown.agent_flag_errors() + lockdown.tmpdir_errors(fresh=fresh_tmpdir) + lockdown.integrity_errors()
+
+
+def guard():
+    errors = lockdown_errors()
+    if errors:
+        fail("agents would not run locked down: " + "; ".join(errors))
+    out({"valid": True})
+
+
+def changed_files(base):
+    """The files the change under review touches: committed since base, changed in the working tree, or new."""
+    found = set(git_paths("diff", "--name-only", base)) | set(git_paths("ls-files", "--others", "--exclude-standard"))
+    return sorted(found)
+
+
 def setup():
+    errors = lockdown_errors(fresh_tmpdir=True)
+    if errors:
+        fail("the lockdown is not in place (see the README's Install section): " + "; ".join(errors))
     if not CONFIG.exists():
         fail(f"{CONFIG} missing; copy whetstone-core-config.template.yml there and set base_ref")
     base_ref = (yaml.safe_load(CONFIG.read_text()) or {}).get("base_ref")
@@ -114,15 +148,11 @@ def setup():
     # Triage sends evidence to the decision backend; without a key it would fail after a paid review.
     if os.environ.get("WHETSTONE_TRIAGE", "").split("=")[-1].lower() == "true" and not os.environ.get("TYPESAFE_API_KEY"):
         fail("triage is on but TYPESAFE_API_KEY is not set; set it, or run with --input triage=false")
-    # Each round commits with `git add -A` and refuses changes no fix claims, so the run must start clean.
-    if subprocess.run(["git", "check-ignore", "-q", ".review/x"]).returncode != 0:
-        fail(".review/ is not ignored by git; add `.review/` to .gitignore")
-    dirty = git_paths("status", "--porcelain=v1", "--untracked-files=all")
-    if dirty:
-        fail("the working tree is not clean; commit or ignore these first (a Spec Kit install creates "
-             f"files under .specify/ and .claude/ to commit, and caches to ignore): {dirty[:10]}")
+    for d in (".review/", ".specify/workflows/runs/"):
+        if subprocess.run(lockdown.git_cmd("check-ignore", "-q", d + "x"), env=lockdown.git_env()).returncode != 0:
+            fail(f"{d} is not ignored by git; add `{d}` to .gitignore")
     R.mkdir(exist_ok=True)
-    # A new run starts fresh: an earlier run's base, ledger and rounds move to .review/previous/.
+    # A new run starts fresh: an earlier run's files move to .review/previous/.
     earlier = [p for p in R.iterdir() if p.name != "previous"]
     if earlier:
         dest = R / "previous" / datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
@@ -135,29 +165,80 @@ def setup():
         fail(f"git merge-base {base_ref} HEAD failed ({e.stderr.strip() or e.returncode}); "
              f"set base_ref in {CONFIG} to the branch pull requests merge into")
     (R / "base").write_text(base + "\n")
-    save_ledger({"dismissed": [], "rejected": [], "deferred": [], "clarify": [], "follow_ups": [], "warnings": []})
-    (R / "round").write_text("0\n")
-    out({"valid": True, "base": base, "base_ref": base_ref, "head": git("rev-parse", "HEAD")})
-
-
-def begin_round():
-    n = round_no() + 1
-    if CUR.exists():
-        shutil.move(str(CUR), str(R / "history" / f"round-{n - 1}"))
+    (R / "run-id").write_text(runstate.run_id() + "\n")  # later steps refuse to touch another run's files
+    save_ledger({k: [] for k in LEDGER_KEYS})
+    (R / "round").write_text("1\n")
     CUR.mkdir(parents=True)
-    (R / "round").write_text(f"{n}\n")
     (CUR / ".started").write_text(f"{time.time()}\n")
-    base = (R / "base").read_text().strip()
-    files = git_paths("diff", "--name-only", f"{base}...HEAD")
-    (CUR / "pr-files.txt").write_text("\n".join(files) + "\n")
-    out({"valid": True, "round": n, "head": git("rev-parse", "HEAD"), "pr_files": len(files)})
+    files = changed_files(base)
+    (CUR / "pr-files.txt").write_text("".join(f + "\n" for f in files))
+    out({"valid": True, "base": base, "base_ref": base_ref, "head": git("rev-parse", "HEAD"), "changed_files": len(files)})
+
+
+def _find(argv):
+    if "--command" in argv:
+        command = argv[argv.index("--command") + 1]
+        args = argv[argv.index("--args") + 1] if "--args" in argv else None
+        return runstate.find(command=command, args=args)
+    if "--prompt" in argv:
+        return runstate.find(prompt=argv[argv.index("--prompt") + 1])
+    fail("fetch needs --command C [--args A] or --prompt P")
+
+
+def fetch():
+    name = sys.argv[2]
+    if "/" in name or name.startswith("."):
+        fail(f"fetch: {name} is not a plain file name")
+    rec, err = _find(sys.argv[3:])
+    doc, err = runstate.answer(rec, "the agent step") if rec else (None, err)
+    if err:
+        fail(f"no answer to take: {err}")
+    CUR.mkdir(parents=True, exist_ok=True)
+    (CUR / name).write_text(json.dumps(doc, indent=2) + "\n")
+    out({"valid": True, "file": str(CUR / name)})
+
+
+def canary_targets(nonce):
+    return [f"canary-{nonce}", f".git/canary-{nonce}", f".review/canary-{nonce}", f".specify/canary-{nonce}",
+            f".claude/canary-{nonce}", os.path.expanduser(f"~/.claude/canary-{nonce}")]
+
+
+def canary_open():
+    import secrets
+    R.mkdir(exist_ok=True)
+    nonce = secrets.token_hex(8)
+    (R / "canary-nonce").write_text(nonce + "\n")
+    out({"valid": True, "nonce": nonce})
+
+
+def canary_check():
+    nonce = (R / "canary-nonce").read_text().strip()
+    expected = canary_targets(nonce)
+    # The paths come from the nonce, never from the agent: an agent cannot make this step delete anything else.
+    leaked = [t for t in expected if os.path.lexists(t)]
+    for t in leaked:
+        Path(t).unlink()
+    if leaked:
+        fail(f"an agent's command could write protected paths {leaked}: the sandbox is not in effect")
+    rec, err = runstate.find(command=CANARY_COMMAND, args=nonce)
+    doc, err = runstate.answer(rec, "the canary") if rec else (None, err)
+    if err:
+        fail(f"the canary agent did not report: {err}")
+    if not isinstance(doc, dict) or doc.get("nonce") != nonce or not isinstance(doc.get("results"), dict):
+        fail("the canary agent did not run its script (its answer does not carry this run's nonce)")
+    if sorted(doc["results"]) != sorted(expected):
+        fail("the canary agent's answer does not list the script's paths; it did not run the script as it is")
+    if any(doc["results"].values()):
+        fail(f"the canary could write {[p for p, w in doc['results'].items() if w]}: the sandbox is not in effect")
+    out({"valid": True, "protected_paths_checked": len(expected)})
 
 
 def summarize():
+    runstate.bound_run_id()
     n = round_no()
     f = validate("findings.schema.json", CUR / "findings.json")
     if f["base"] != (R / "base").read_text().strip():
-        fail(f"findings.json base {f['base']} is not the loop's base")
+        fail(f"findings.json base {f['base']} is not this run's base")
     ids = [x["id"] for x in f["findings"]]
     if len(ids) != len(set(ids)):
         fail("findings.json has duplicate finding ids")
@@ -185,96 +266,85 @@ def summarize():
     out(summary)
 
 
-def check_apply():
+def report():
+    """Everything a person needs from this run, in .review/report.json; and the gate's text, if a person must look."""
+    runstate.bound_run_id()
     n = round_no()
-    summary = json.loads((CUR / "summary.json").read_text())
-    actionable = summary["actionable_ids"]
+    clean = lockdown.clean_text
+    l = ledger()
+    summary = json.loads((CUR / "summary.json").read_text()) if (CUR / "summary.json").exists() else None
     pr_files = set((CUR / "pr-files.txt").read_text().splitlines()) - {""}
-    shim = {}
-    if (CUR / "shim-check.json").exists():  # fallback when the shim check is off: every finding is a local fix
+    shim = None
+    if (CUR / "shim-check.json").exists():  # fallback when the shim check is off: no classes, no follow-ups
         s = validate("shim-check.schema.json", CUR / "shim-check.json")
         shim = {r["finding_id"]: r for r in s["results"]}
+        actionable = summary["actionable_ids"] if summary else []
         missing = [i for i in actionable if i not in shim]
         if missing:
             fail(f"shim-check.json has no result for actionable findings {missing}")
         for r in shim.values():
             for o in r["occurrences"]:
                 if o["in_pr"] != (o["file"] in pr_files):
-                    fail(f"shim-check.json {r['finding_id']}: {o['file']} in_pr={o['in_pr']} contradicts the PR's file list")
-    d = validate("decisions.schema.json", CUR / "decisions.json")
-    by = {x["finding_id"]: x for x in d["decisions"]}
-    missing = [i for i in actionable if i not in by]
-    if missing:
-        fail(f"decisions.json has no decision for {missing}")
-    new_files = set(git_paths("ls-files", "--others", "--exclude-standard"))
-    changed = set(git_paths("diff", "--name-only", "HEAD")) | new_files
-    # The PR boundary holds for the whole working tree, whatever decisions.json lists:
-    # only files the PR already touches may change; new files (e.g. a new test) are allowed.
-    outside = sorted(changed - new_files - pr_files)
-    if outside:
-        fail(f"existing files outside the PR changed {outside}; those must be follow-ups")
-    claimed_all = set()
-    for i in actionable:
-        x = by[i]
-        claimed = set(x["files_changed"])
-        if x["decision"] == "fix":
-            if not claimed:
-                fail(f"{i}: decision fix lists no files_changed")
-            if not claimed <= changed:
-                fail(f"{i}: files_changed {sorted(claimed - changed)} are not changed in the working tree")
-            claimed_all |= claimed
-        elif claimed:
-            fail(f"{i}: decision {x['decision']} lists files_changed {sorted(claimed)}")
-    # Every change must belong to a fix decision; nothing unclaimed is committed.
-    unclaimed = sorted(changed - claimed_all)
-    if unclaimed:
-        fail(f"changed files no fix decision claims {unclaimed}")
-    # Not checkable from files (a test-coverage fix lands in a test file, a shared cause may be
-    # fixed once): a class fix that left an in-PR occurrence's file untouched is reported, not failed.
-    warnings = []
-    for i in actionable:
-        if by[i]["decision"] == "fix" and i in shim and shim[i]["strategy"] == "class_fix":
-            untouched = sorted({o["file"] for o in shim[i]["occurrences"] if o["in_pr"]} - set(by[i]["files_changed"]))
-            if untouched:
-                warnings.append({"round": n, "finding_id": i, "warning":
-                                 f"class_fix left in-PR occurrence files untouched {untouched}; see the decision's reason"})
-    l = ledger()
-    for w in warnings:
-        record(l, "warnings", w)
-    for i in actionable:
-        x = by[i]
-        if x["decision"] in ("reject", "defer", "clarify"):
-            key = {"reject": "rejected", "defer": "deferred", "clarify": "clarify"}[x["decision"]]
-            record(l, key, {"round": n, "finding_id": i, "reason": x["reason"]})
-        # Follow-ups only from findings judged right (fixed here or deferred), not rejected or open.
-        if i in shim and x["decision"] in ("fix", "defer"):
-            for o in shim[i]["occurrences"]:
+                    fail(f"shim-check.json {r['finding_id']}: {o['file']} in_pr={o['in_pr']} contradicts the change's file list")
                 if not o["in_pr"]:
-                    record(l, "follow_ups", {"round": n, "finding_id": i, "defect_class": shim[i]["defect_class"],
+                    record(l, "follow_ups", {"round": n, "finding_id": r["finding_id"], "defect_class": r["defect_class"],
                                             "file": o["file"], "line_start": o["line_start"]})
+    claims = None
+    lines = []
+    if (CUR / "claim-check.json").exists():  # fallback when the claim check is off: no claim is checked
+        claims = validate("claim-check.schema.json", CUR / "claim-check.json")
+        for c in claims["claims"]:
+            v = c["verdict"]
+            if v and v["verdict"] == "WRONG":
+                evidence = next((e["evidence"] for e in v["assertions"] if not e["confirmed"]), "")
+                record(l, "claims_wrong", {"round": n, "claim_id": c["id"], "file": c["file"], "line": c["line"],
+                                           "quote": c["quote"], "failing_case": v.get("failing_case", ""), "evidence": evidence})
+                lines.append(f"WRONG  {clean(c['file'])}:{c['line']} \"{clean(c['quote'], 160)}\" | fails when: "
+                             f"{clean(v.get('failing_case', ''), 200)} | evidence: {clean(evidence, 80)}")
+            elif v and v["verdict"] == "UNSURE":
+                record(l, "claim_notes", {"round": n, "claim_id": c["id"], "file": c["file"], "line": c["line"],
+                                          "quote": c["quote"], "gap": v.get("gap", "")})
+        for f in claims["unread"]:
+            record(l, "unread", {"round": n, "file": f["file"], "reason": f["reason"]})
+            lines.append(f"UNREAD {clean(f['file'])}: {clean(f['reason'], 120)}")
+        for u in claims["unjudged"]:
+            record(l, "unjudged", {"round": n, "claim_id": u["id"], "file": u["file"], "line": u["line"],
+                                   "quote": u["quote"], "reason": u["reason"]})
+            lines.append(f"UNJUDGED {clean(u['file'])}:{u['line']} \"{clean(u['quote'], 160)}\": {clean(u['reason'], 120)}")
+        if claims.get("warning"):
+            record(l, "warnings", {"round": n, "warning": claims["warning"]})
     save_ledger(l)
-    commit = None
-    if changed:
-        git("add", "-A")
-        # The repository's commit hooks run (no --no-verify): a hook that rejects the fixes stops the loop.
-        c = subprocess.run(["git", "-c", "user.name=whetstone", "-c", "user.email=whetstone@localhost",
-                            "commit", "-q", "-m", f"whetstone round {n}: fixes"], capture_output=True, text=True)
-        if c.returncode != 0:
-            fail(f"git commit failed, probably a commit hook; the fixes are staged, not committed: "
-                 f"{(c.stderr or c.stdout).strip()[-1500:]}")
-        commit = git("rev-parse", "HEAD")
-    counts = {k: sum(1 for i in actionable if by[i]["decision"] == k) for k in ("fix", "reject", "defer", "clarify")}
-    checks = json.loads((CUR / "checks.json").read_text()) if (CUR / "checks.json").exists() else None
-    out({"valid": True, "round": n, "shim_check_used": bool(shim), **counts, "warnings": len(warnings),
-         "checks": checks, "commit": commit})
+    doc = {"round": n, "base": (R / "base").read_text().strip(), "head": git("rev-parse", "HEAD"),
+           "changed_files": sorted(pr_files), "findings": summary, "shim_check": list(shim.values()) if shim else None,
+           "claim_check": {k: claims[k] for k in ("tree", "counts", "not_judged", "unread", "unjudged")} if claims else None,
+           **{k: l[k] for k in LEDGER_KEYS}}
+    (R / "report.json").write_text(json.dumps(doc, indent=2) + "\n")
+    needs_human = bool(lines)
+    message = ""
+    if needs_human:
+        head = (f"Whetstone: the claim check found {len(lines)} item(s) a person must look at. Each line below is "
+                "quoted from the repository (agent-written text, cleaned):")
+        message = "\n".join([head] + [f"  | {x}" for x in lines[:40]] +
+                            ([f"  | ... and {len(lines) - 40} more"] if len(lines) > 40 else []) +
+                            ["Details: .review/report.json and .review/current/claim-check.json. Approve to record "
+                             "that you have seen them; reject to stop the run."])
+    counts = {k: len(l[k]) for k in LEDGER_KEYS}
+    out({"valid": True, "needs_human": needs_human, "message": message, "actionable": (summary or {}).get("actionable"),
+         **counts})
 
 
 def finish():
+    runstate.bound_run_id()
+    choice = os.environ.get("WHETSTONE_GATE", "").strip()
     l = ledger()
-    report = {"rounds": round_no(), **{k: l[k] for k in l},
-              "final": json.loads((CUR / "summary.json").read_text()) if (CUR / "summary.json").exists() else None}
-    (R / "report.json").write_text(json.dumps(report, indent=2) + "\n")
-    out({"valid": True, "rounds": report["rounds"], **{k: len(l[k]) for k in l}})
+    if choice:
+        record(l, "gate", {"round": round_no(), "reason": choice,
+                           "at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")})
+        save_ledger(l)
+        rep = json.loads((R / "report.json").read_text())
+        rep["gate"] = l["gate"]
+        (R / "report.json").write_text(json.dumps(rep, indent=2) + "\n")
+    out({"valid": True, "gate": choice or None, **{k: len(l[k]) for k in LEDGER_KEYS}})
 
 
 def validate_cmd():
@@ -283,5 +353,5 @@ def validate_cmd():
 
 
 if __name__ == "__main__":
-    {"setup": setup, "begin-round": begin_round, "validate": validate_cmd, "summarize": summarize,
-     "check-apply": check_apply, "finish": finish}[sys.argv[1]]()
+    {"setup": setup, "guard": guard, "fetch": fetch, "canary-open": canary_open, "canary-check": canary_check,
+     "validate": validate_cmd, "summarize": summarize, "report": report, "finish": finish}[sys.argv[1]]()

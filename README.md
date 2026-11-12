@@ -1,13 +1,18 @@
 # Whetstone
 
-Whetstone sharpens a branch before people review it. It is a Spec Kit bundle that:
-- reviews the branch with pr-review-toolkit;
-- dismisses bikeshedding with a decision model;
-- checks whether each fix should be a patch or a class fix;
-- applies fixes within the PR's files.
+Whetstone sharpens a change before people review it. It is a Spec Kit bundle that
+reads a repository and reports:
+- the review findings of pr-review-toolkit;
+- which of them are bikeshedding, decided by a decision model;
+- for each remaining finding, whether the fix should be a patch or a class fix, and
+  where else the defect occurs;
+- which claims the change's comments, docs and test names make about the code, and
+  which of those claims are wrong.
 
-It repeats until nothing important is left. Fixes are committed locally; nothing is
-pushed or posted.
+Whetstone **changes nothing**: it never edits the repository, runs its tests or
+commits. The report in `.review/report.json` is for the person, or the separate agent,
+who fixes the change; run Whetstone again on the result. That split is what makes the
+lockdown below hold: the agents that judge a change can only read it.
 
 ## The name
 
@@ -17,30 +22,37 @@ A whetstone is a stone for sharpening blades. The word comes from Old English
 before use, which is why "wetstone" is a common misspelling.
 
 A whetstone does not make the blade. It takes off burrs and dull spots, pass by
-pass, until the edge is ready. Whetstone does not write the change either. It
-takes a branch someone wrote and works on it, round by round, until it is ready
-for people to review.
+pass, until the edge is ready. Whetstone does not write the change either, nor fix
+it. It shows where the edge is still dull.
 
 ## How it works
 
-Each round:
+One run, on the change from the merge-base with `base_ref` to the working tree
+(committed and uncommitted changes, new files included):
 
-1. **review**: pr-review-toolkit's agents review the branch.
-2. **triage** (switchable): a decision model dismisses bikeshedding findings.
-3. **shim check** (switchable): for each remaining finding, an agent finds where else
-   the defect occurs and decides between a local fix, a class fix, or a smaller fix
-   than suggested.
-4. **apply**: an agent fixes, rejects, defers or escalates each finding, within the
-   PR's files. The loop then runs the repository's checks itself, checks the changes
-   against the decisions and the PR's files, and commits locally.
+1. **setup**: checks the lockdown (next sections) and that `.claude/` and `.specify/`
+   are exactly what `HEAD` records; records the base commit and the change's files.
+2. **canary**: a short agent run that tries to write the repository and the other
+   protected paths. The run stops if any write succeeds.
+3. **review**: pr-review-toolkit's agents review the change.
+4. **triage** (switchable): a decision model dismisses bikeshedding findings.
+5. **shim check** (switchable): for each remaining Critical or Important finding, an
+   agent names the defect class, finds its other occurrences, and decides between a
+   local fix, a class fix, or a smaller fix than suggested. Occurrences outside the
+   change's files become follow-ups.
+6. **claim check** (switchable): readers quote every claim the change's text makes;
+   a judge per claim about the repo's own code (K1) or about what a test checks (K9)
+   tries to break it, citing `path:line` evidence that is checked against the tree.
+7. **report**: `.review/report.json`. If a claim is WRONG, a file could not be read or
+   a claim could not be judged, a gate shows them to you before the run ends.
 
-The loop ends when no Critical or Important finding is left, or after three rounds
-with a gate for a human. Nothing is pushed or posted.
+Nothing is pushed or posted. Every agent answers on its standard output; Spec Kit
+keeps the answer in the run state, and Whetstone's own steps take it from there.
 
 ## What leaves your machine
 
-- **Claude:** the review, shim-check and apply agents run in Claude Code and read the
-  repository as Claude Code does.
+- **Claude:** the canary, review, shim-check, reader and judge agents run in Claude
+  Code and read the repository as Claude Code does.
 - **Triage (on by default):** for each Critical or Important finding, an evidence file
   goes to the decision step's Jev backend at api.typesafe.ai. The file holds the finding,
   the code around it, and the rule, config and CI files named in
@@ -52,11 +64,12 @@ with a gate for a human. Nothing is pushed or posted.
 
 | Component | Kind | README |
 |---|---|---|
-| `whetstone-core` | extension | [contracts and the deterministic checker](extensions/whetstone-core/README.md) |
+| `whetstone-core` | extension | [contracts, the checker, the lockdown rules](extensions/whetstone-core/README.md) |
 | `whetstone-review` | extension + workflow | [review step](extensions/whetstone-review/README.md) |
 | `whetstone-triage` | extension + workflow | [bikeshedding triage](extensions/whetstone-triage/README.md) |
 | `whetstone-shim-check` | extension + workflow | [patch or class fix](extensions/whetstone-shim-check/README.md) |
-| `whetstone-apply` | extension + workflow | [fixes and checks](extensions/whetstone-apply/README.md) |
+| `whetstone-claim-check` | extension + workflows | [claims checked against the code](extensions/whetstone-claim-check/README.md); `whetstone-claim-read` and `whetstone-claim-judge` run one reader or judge each |
+| `whetstone-canary` | workflow | the lockdown canary ([lockdown](#lock-down-claude-code)) |
 | `whetstone` | workflow | composes the modules ([bundle README](bundle/README.md)) |
 | `decision` 0.9.0 | workflow step | community step, [markuswondrak/spec-kit-decision-step](https://github.com/markuswondrak/spec-kit-decision-step) |
 
@@ -66,7 +79,14 @@ another workflow through a `workflow` step.
 
 ## Install in a repository
 
-**1. Commit or stash your work.** The loop needs a clean working tree.
+**1. Check the requirements.**
+
+- **Linux**, with Claude Code's sandbox working: it uses bubblewrap (`bwrap`,
+  Debian/Ubuntu: `apt install bubblewrap`) and unprivileged user namespaces. The
+  canary at the start of every run tells you if it does not.
+- Spec Kit 1.3.3 or later; Claude Code with the `pr-review-toolkit` plugin enabled.
+- `git`, `python3` and `uv`. If `uv` comes from proto, pin it in `.prototools`.
+- For triage, `TYPESAFE_API_KEY` (see [What leaves your machine](#what-leaves-your-machine)).
 
 **2. Register the catalogs and install the bundle:**
 
@@ -77,7 +97,7 @@ specify bundle catalog add $C/bundles.json --id whetstone
 specify extension catalog add $C/extensions.json --name whetstone --install-allowed --priority 1
 specify workflow catalog add $C/workflows.json --name whetstone
 specify workflow step catalog add $C/steps.json --name whetstone
-specify bundle install whetstone --version 0.3.0
+specify bundle install whetstone --version 0.4.0
 ```
 
 Adding the extension, workflow and step catalogs is a trust decision. Spec Kit
@@ -99,14 +119,13 @@ The community catalogs are discovery-only by default. `catalog add` would make t
 install-allowed, so add them to `.specify/*-catalogs.yml` by hand with
 `install_allowed: false` if you want them.
 
-**3. Configure.** Edit the three files the install created. Each one explains its
+**3. Configure.** Edit the two files the install created. Each one explains its
 settings in comments.
 
 | File | Sets |
 |---|---|
 | `.specify/extensions/whetstone-core/whetstone-core-config.yml` | `base_ref`, the branch PRs merge into |
 | `.specify/extensions/whetstone-triage/whetstone-triage-config.yml` | what the triage evidence contains |
-| `.specify/extensions/whetstone-apply/whetstone-apply-config.yml` | `checks`, commands that must pass |
 
 **4. Ignore Spec Kit's and Whetstone's working files** in `.gitignore`:
 
@@ -115,17 +134,116 @@ settings in comments.
 .specify/workflows/runs/
 .specify/**/.cache/
 .specify/.*.lock
+__pycache__/
 ```
 
-**5. Commit everything else** the install created under `.specify/` and `.claude/`,
-and `.gitignore`.
+(`__pycache__/` matters: installing the `decision` step compiles its Python, and a
+committed `.pyc` would show up in every claim check as an unreadable file.)
 
-A run refuses to start on a dirty working tree, or when `.review/` is not ignored.
-Each round commits with `git add -A` and refuses changes that no fix claims, so
-anything left over would otherwise end up in a round's commit or fail it.
+**5. Commit everything the install created under `.specify/` and `.claude/`**, and
+`.gitignore`. A run refuses to start unless `.claude/` and `.specify/` are exactly
+what `HEAD` records: they hold the skills, workflows and scripts the agents and
+Whetstone's own steps run from, so a stray file there, tracked or not, stops the run.
+Your own uncommitted changes elsewhere are fine; they are the change under review.
 
-**6. Run:** see [bundle/README.md](bundle/README.md#run). Each run starts fresh; an
-earlier run's files move to `.review/previous/`.
+**6. Lock down the agents** (next section), then **run:** see
+[bundle/README.md](bundle/README.md#run). Each run starts fresh; an earlier run's
+files move to `.review/previous/`.
+
+## Lock down Claude Code
+
+Whetstone's agents read code that someone else wrote, and that code may try to
+talk to them. The lockdown makes sure that whatever an agent does, it can change
+nothing Whetstone's own steps rely on: not the repository, not the scripts, not the
+run state, not the report.
+
+**Set this in the shell you run Whetstone from:**
+
+```bash
+export SPECKIT_INTEGRATION_CLAUDE_EXTRA_ARGS=$(cat <<'EOF'
+--permission-mode acceptEdits --no-session-persistence --strict-mcp-config --output-format json --settings '{"sandbox":{"enabled":true,"allowUnsandboxedCommands":false,"failIfUnavailable":true},"disableAllHooks":true,"claudeMdExcludes":["**/CLAUDE.md","**/CLAUDE.local.md"],"permissions":{"deny":["Edit(./**)"]}}'
+EOF
+)
+```
+
+Spec Kit adds these flags to every `claude -p` command it launches. Whetstone
+requires each of them:
+
+| Flag or setting | Why |
+|---|---|
+| `sandbox.enabled: true` | Every command an agent runs, and everything it starts, runs in Claude Code's sandbox. |
+| `sandbox.allowUnsandboxedCommands: false` | No command may run outside the sandbox. |
+| `sandbox.failIfUnavailable: true` | If the sandbox cannot start, the agent's commands fail instead of running unsandboxed. Without this setting they run unsandboxed, silently. |
+| `permissions.deny: ["Edit(./**)"]` | The whole working directory. Inside the sandbox it is mounted read-only, so neither the agent's file tools nor any command it runs can write it; `.git`, `.specify`, `.claude` and `.review` included. It must be this exact pattern: `Edit(**)` does not make the sandbox mount anything read-only. |
+| `disableAllHooks: true` | A hook in the repository's `.claude/settings.json` would run outside the sandbox. |
+| `claudeMdExcludes` | A `CLAUDE.md` in the repository is not loaded as instructions. |
+| `--strict-mcp-config` | A `.mcp.json` in the repository does not start a server outside the sandbox. |
+| `--output-format json` | The agent's answer comes back as structured output, with its error state. |
+| `--permission-mode acceptEdits` | Not `bypassPermissions` or `auto`, which Whetstone refuses. |
+
+Also required: **a fresh, short `TMPDIR` per run** (see [Run](bundle/README.md#run)).
+Agents can write their temporary directory, so each run gets its own, and nothing
+Whetstone's own steps do reads it. A long path (over 60 bytes) stops the run: the
+sandbox needs a short one.
+
+**This affects only the agents Whetstone starts.** Claude Code itself does not read
+the variable. Your own Claude Code sessions, in this repository or any other, are
+unchanged, and nothing is written to your settings files. A `.claude/settings.json`
+in the repository cannot weaken these flags: the inline `--settings` wins.
+
+**What Whetstone checks** (it refuses to run otherwise):
+- `setup`, and a guard step before every agent step, check the variable: exactly one
+  inline `--settings` with all of the above, the required flags, and no
+  `--dangerously-skip-permissions`, `bypassPermissions` or `auto`;
+  `SPECKIT_INTEGRATION_CLAUDE_EXECUTABLE` unset; `TMPDIR` set and short (empty at
+  `setup`); `.claude/` and `.specify/` equal to `HEAD`.
+- At the start of each run, the **canary** agent runs a script that tries to create a
+  file in the repository, in `.git`, `.review`, `.specify`, `.claude` and `~/.claude`.
+  Whetstone checks that none of those files exists and that the agent's answer is the
+  script's output for this run's nonce. If a write succeeded, the run stops and names it.
+
+**What Whetstone does itself:**
+- Its own steps run Python isolated (`python3 -I`, `uv run --isolated --no-config
+  --no-project`), so nothing in the repository or your home directory is imported.
+- Its own `git` calls ignore your and the system's git configuration and run no hooks
+  and no file system monitor, so a repository's `core.hooksPath` or a planted config
+  cannot run code.
+- The temporary index the claim check builds lives under `.review/`, not in `TMPDIR`.
+- Agents answer on standard output. Whetstone reads each answer from the run state
+  under `.specify/workflows/runs/`, which agents cannot write, and finds a step by
+  what Spec Kit recorded from the workflow, never by what the agent wrote.
+- Every agent-written text shown to you (the gate, the report) has control, format
+  and separator characters removed and is capped in length, so it cannot imitate the
+  gate or hide a line.
+- A reader or judge that fails, answers badly or is cut off leaves its files **unread**
+  or its claim **unjudged**. Both go to the gate; neither counts as correct.
+
+## What Whetstone guarantees, and what it does not
+
+Given a checkout whose `.claude/` and `.specify/` equal `HEAD`, a trusted shell, and
+the flags above, then during a run:
+- the commands an agent runs cannot write the repository, your home directory, the
+  scripts, the run state or the report;
+- the report describes exactly the tree Whetstone's own step recorded;
+- an agent that fails, answers badly or is cut off appears as UNREAD or UNJUDGED,
+  never as CORRECT;
+- a WRONG, unread or unjudged claim always stops at a gate.
+
+Not covered:
+- **The agents' judgement.** A judge reads the code it judges, and that code can be
+  written to mislead it; a reader can miss a claim. This is the same limit a human
+  reviewer has, and the reason the report is for a person.
+- **What the clean checkout already contains.** A skill in `.claude/skills/`, a
+  `.mcp.json` or a `.claude/settings.json` that you committed is trusted, like any code
+  you committed. Whetstone's own skills are among them, so review that folder.
+- **Resuming a run from another shell.** `specify workflow resume` restarts at the
+  step that stopped; the flags and `TMPDIR` must be the same as when the run started.
+  Whetstone's guards check again before every agent step that follows, but not the
+  step being resumed itself.
+- **Agents' shared temporary directory.** Within a run, agents can read what earlier
+  agents left in `TMPDIR`. Nothing Whetstone's own steps do reads it.
+- **Network access** from inside the sandbox. In the tests on this project it was
+  refused, but Whetstone does not require a setting that guarantees that.
 
 ## Release (maintainers)
 
@@ -135,14 +253,14 @@ earlier run's files move to `.review/previous/`.
 2. Build:
    ```bash
    python3 tools/build.py \
-     --assets-url https://github.com/kandy-babbel/whetstone/releases/download/v0.3.0 \
+     --assets-url https://github.com/kandy-babbel/whetstone/releases/download/v0.4.0 \
      --catalog-url https://raw.githubusercontent.com/kandy-babbel/whetstone/main/catalog
    ```
    This empties `dist/`, then writes the extension zips (each with `LICENSE`), the
    workflow files and the bundle zip there. It also rewrites the catalogs in
    `catalog/` with each file's sha256. The version a catalog entry replaces moves to
    the entry's `releases`, so earlier versions stay installable with `--version`.
-3. Create release `v0.3.0` with every file in `dist/` as an asset.
+3. Create release `v0.4.0` with every file in `dist/` as an asset.
    Never change a release's assets after publishing. Spec Kit checks each download
    against the catalog's sha256 and caches catalogs for an hour, so a changed file
    fails to install. Fix by releasing a new version.

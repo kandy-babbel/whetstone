@@ -1,17 +1,18 @@
 ---
-description: "Write shim-check.json for the actionable findings of a round"
+description: "Decide the size of each fix: shim-check.json for the actionable findings"
 ---
 
 # Shim check: patch or class fix for each actionable finding
 
-You decide how big each fix should be. You do not change any code. A program
-checks what you write; nothing reads your chat reply.
+You decide how big each fix should be. You do not change any code; the
+repository is read-only for you. A program reads your final answer; nothing
+else you write is kept.
 
 ## Input
 
-- `.review/current/findings.json`: the round's findings (cc-review format).
+- `.review/current/findings.json`: the findings (cc-review format).
 - `.review/current/summary.json`: `actionable_ids` lists the findings to check.
-- `.review/current/pr-files.txt`: the files the pull request changes.
+- `.review/current/pr-files.txt`: the files the change under review touches.
 
 ## For each actionable finding
 
@@ -38,8 +39,9 @@ checks what you write; nothing reads your chat reply.
 
 ## Output
 
-Write `.review/current/shim-check.json`, strict JSON, matching
-`.specify/extensions/whetstone-core/schemas/shim-check.schema.json`:
+Your final answer is one strict JSON document matching
+`.specify/extensions/whetstone-core/schemas/shim-check.schema.json`, with no code
+fence and nothing before or after it:
 
 ```json
 {

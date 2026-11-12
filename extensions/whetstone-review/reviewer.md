@@ -5,23 +5,25 @@ write; nothing reads your chat reply.
 
 ## Scope
 
-- The change under review is `git diff $(cat .review/base)...HEAD`. Report
-  only problems in, or caused by, that change.
+- The change under review is everything from the commit in `.review/base` to the
+  working tree: `git diff $(cat .review/base)` plus untracked files, uncommitted
+  changes included. Report only problems in, or caused by, that change.
 - Never run `git push`, `gh` (other than `gh pr view`), `curl` or anything that
   contacts a remote service. Never post comments anywhere.
-- Do not edit any file except the output file.
+- The repository is read-only for you. Do not try to edit any file.
 
 ## Earlier decisions
 
-`.review/ledger.json` lists findings from earlier rounds that were dismissed as
-bikeshedding, rejected with a reason, deferred as follow-ups, or sent to a
-human. Do not report one of them again unless you have a concrete reason the
-earlier decision is wrong; then say why in `rationale`.
+`.review/previous/*/ledger.json` lists findings of earlier runs that were
+dismissed as bikeshedding or recorded as follow-ups. Do not report one of them
+again unless you have a concrete reason the earlier decision is wrong; then say
+why in `rationale`.
 
 ## Output
 
-After every review agent has finished, write `.review/current/findings.json`,
-strict JSON, matching `.specify/extensions/whetstone-core/schemas/findings.schema.json`:
+After every review agent has finished, your final answer is one strict JSON
+document matching `.specify/extensions/whetstone-core/schemas/findings.schema.json`,
+with no code fence and nothing before or after it:
 
 ```json
 {

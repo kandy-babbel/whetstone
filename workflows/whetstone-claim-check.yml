@@ -1,0 +1,59 @@
+schema_version: '1.0'
+workflow:
+  id: whetstone-claim-check
+  name: 'Whetstone: claim check'
+  version: 0.4.0
+  author: Kirill Andriychuk
+  description: Quote the claims in the text of the change and judge each K1/K9 claim against the tree the change leaves; write .review/current/claim-check.json. Reads the repository only.
+requires:
+  speckit_version: '>=1.3.3'
+inputs:
+  model:
+    type: string
+    default: sonnet
+steps:
+- id: claims_prepare
+  type: shell
+  output_format: json
+  run: python3 -I .specify/extensions/whetstone-claim-check/scripts/claimcheck.py prepare
+- id: claims_read
+  type: fan-out
+  items: '{{ steps.claims_prepare.output.data.batches }}'
+  max_concurrency: 4
+  step:
+    id: read_one
+    type: workflow
+    workflow: whetstone-claim-read
+    continue_on_error: true
+    input:
+      batch: '{{ item }}'
+      model: '{{ inputs.model }}'
+- id: claims_accept
+  type: shell
+  output_format: json
+  run: python3 -I .specify/extensions/whetstone-claim-check/scripts/claimcheck.py accept
+  env:
+    WHETSTONE_RUN_ID: '{{ context.run_id }}'
+- id: claims_judge
+  type: fan-out
+  items: '{{ steps.claims_accept.output.data.judge }}'
+  max_concurrency: 4
+  step:
+    id: judge_one
+    type: workflow
+    workflow: whetstone-claim-judge
+    continue_on_error: true
+    input:
+      claim: '{{ item }}'
+      model: '{{ inputs.model }}'
+- id: claims_settle
+  type: shell
+  output_format: json
+  run: python3 -I .specify/extensions/whetstone-claim-check/scripts/claimcheck.py settle
+  env:
+    WHETSTONE_RUN_ID: '{{ context.run_id }}'
+- id: claims_validate
+  type: shell
+  output_format: json
+  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I .specify/extensions/whetstone-core/scripts/whetstone.py
+    validate claim-check.schema.json .review/current/claim-check.json
