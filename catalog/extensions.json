@@ -1,6 +1,6 @@
 {
  "schema_version": "1.0",
- "updated_at": "2026-11-12T12:51:25Z",
+ "updated_at": "2026-11-20T09:53:17Z",
  "catalog_url": "https://raw.githubusercontent.com/kandy-babbel/whetstone/main/catalog/extensions.json",
  "extensions": {
   "whetstone-claim-check": {
@@ -8,25 +8,34 @@
    "name": "Whetstone: claim check",
    "description": "Quotes every claim the text of a change makes and has a judge try to break each claim about the repo's own code or about what a test checks. Reads only.",
    "author": "Kirill Andriychuk",
-   "version": "0.4.0",
-   "download_url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.4.0/whetstone-claim-check-0.4.0.zip",
-   "sha256": "edf7698c1f40b42ba5a0f9bf66006beab53d3251b8a1b59f23c2991781483e8f",
+   "version": "0.5.0",
+   "download_url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.5.0/whetstone-claim-check-0.5.0.zip",
+   "sha256": "c5eec36d0f3990ab3719e422acc452b0dded8f6b3ae731fe5ab6ac8bd62422fd",
    "license": "MIT",
    "requires": {
     "speckit_version": ">=1.3.3"
    },
    "tags": [
     "whetstone"
-   ]
+   ],
+   "releases": {
+    "0.4.0": {
+     "download_url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.4.0/whetstone-claim-check-0.4.0.zip",
+     "sha256": "edf7698c1f40b42ba5a0f9bf66006beab53d3251b8a1b59f23c2991781483e8f",
+     "requires": {
+      "speckit_version": ">=1.3.3"
+     }
+    }
+   }
   },
   "whetstone-core": {
    "id": "whetstone-core",
    "name": "Whetstone: core",
    "description": "Schemas for the modules' contracts and the deterministic checker that validates them, applies fallbacks for switched-off modules, takes the agents' answers from the run state, and writes the report.",
    "author": "Kirill Andriychuk",
-   "version": "0.4.0",
-   "download_url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.4.0/whetstone-core-0.4.0.zip",
-   "sha256": "1e6c7f4b4c465cb56062ab79e5a95e06d07744ac2da14e6559bc573390403f10",
+   "version": "0.5.0",
+   "download_url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.5.0/whetstone-core-0.5.0.zip",
+   "sha256": "5040f4cd2e43559e0ff8decc59cfed1c5da7f0246081b0cff66aabb6fef274df",
    "license": "MIT",
    "requires": {
     "speckit_version": ">=1.3.3"
@@ -41,6 +50,13 @@
      "requires": {
       "speckit_version": ">=1.3.3"
      }
+    },
+    "0.4.0": {
+     "download_url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.4.0/whetstone-core-0.4.0.zip",
+     "sha256": "1e6c7f4b4c465cb56062ab79e5a95e06d07744ac2da14e6559bc573390403f10",
+     "requires": {
+      "speckit_version": ">=1.3.3"
+     }
     }
    }
   },
@@ -49,9 +65,9 @@
    "name": "Whetstone: review",
    "description": "Instructions that turn a pr-review-toolkit review into findings.json (cc-review Finding format).",
    "author": "Kirill Andriychuk",
-   "version": "0.4.0",
-   "download_url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.4.0/whetstone-review-0.4.0.zip",
-   "sha256": "b3c37cacc02bdde61c2e10700a2771ba7a45b38143ccd3f721c13169c0b30408",
+   "version": "0.5.0",
+   "download_url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.5.0/whetstone-review-0.5.0.zip",
+   "sha256": "43f69d68108c0f8fa46e31cec44e52163ca8d2f373574416df0ce8d1fa839b1d",
    "license": "MIT",
    "requires": {
     "speckit_version": ">=1.3.3"
@@ -66,6 +82,13 @@
      "requires": {
       "speckit_version": ">=1.3.3"
      }
+    },
+    "0.4.0": {
+     "download_url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.4.0/whetstone-review-0.4.0.zip",
+     "sha256": "b3c37cacc02bdde61c2e10700a2771ba7a45b38143ccd3f721c13169c0b30408",
+     "requires": {
+      "speckit_version": ">=1.3.3"
+     }
     }
    }
   },
@@ -74,9 +97,9 @@
    "name": "Whetstone: shim check",
    "description": "Finds where else each actionable finding's defect class occurs and decides between a local fix, a class fix, or a fix simpler than the reviewer suggested.",
    "author": "Kirill Andriychuk",
-   "version": "0.4.0",
-   "download_url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.4.0/whetstone-shim-check-0.4.0.zip",
-   "sha256": "033ac569c61d64006d5a813e5dc55dcb0d94adee49e1ce4af76ed28450eabde1",
+   "version": "0.5.0",
+   "download_url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.5.0/whetstone-shim-check-0.5.0.zip",
+   "sha256": "071f19caddf0c86d36bcb2ac63aa1bc862f7f7f69c801e5f47226465bd45b273",
    "license": "MIT",
    "requires": {
     "speckit_version": ">=1.3.3"
@@ -91,6 +114,13 @@
      "requires": {
       "speckit_version": ">=1.3.3"
      }
+    },
+    "0.4.0": {
+     "download_url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.4.0/whetstone-shim-check-0.4.0.zip",
+     "sha256": "033ac569c61d64006d5a813e5dc55dcb0d94adee49e1ce4af76ed28450eabde1",
+     "requires": {
+      "speckit_version": ">=1.3.3"
+     }
     }
    }
   },
@@ -99,9 +129,9 @@
    "name": "Whetstone: triage",
    "description": "Evidence gathering and result collection for deciding, with a decision model, whether each blocking finding is bikeshedding.",
    "author": "Kirill Andriychuk",
-   "version": "0.4.0",
-   "download_url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.4.0/whetstone-triage-0.4.0.zip",
-   "sha256": "866737ebf22c6c5b28451f48048fb3f9c5f88c4cad659c2434666f14a66f878f",
+   "version": "0.5.0",
+   "download_url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.5.0/whetstone-triage-0.5.0.zip",
+   "sha256": "3b4d5d33b82999ff1146dab0f1da1b519dc934368f2dfb64faf3999155cc0408",
    "license": "MIT",
    "requires": {
     "speckit_version": ">=1.3.3"
@@ -113,6 +143,13 @@
     "0.3.0": {
      "download_url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.3.0/whetstone-triage-0.3.0.zip",
      "sha256": "e980ef2cc70f8baa6352e81ce4fbd9a7f265aad6053fa867c1fff04edaf6d461",
+     "requires": {
+      "speckit_version": ">=1.3.3"
+     }
+    },
+    "0.4.0": {
+     "download_url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.4.0/whetstone-triage-0.4.0.zip",
+     "sha256": "866737ebf22c6c5b28451f48048fb3f9c5f88c4cad659c2434666f14a66f878f",
      "requires": {
       "speckit_version": ">=1.3.3"
      }

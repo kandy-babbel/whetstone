@@ -6,10 +6,12 @@ claimcheck.py, claimgate.py and briefs.py). The reader task, the claim categorie
 reader's and a judge's answers must meet are taken from there. Left out: lineages that follow a claim across commits,
 contests, and `unlock`; Whetstone shows a WRONG claim to a person instead.
 
-The checked tree is the working tree as `git add -A` would record it, built in a temporary index so the real one is
-untouched; the change is everything from the run's base commit (.review/base, else HEAD) to that tree. Every agent
-answer is checked against that tree: a quote must be the text around its hunk, and evidence a `path:line` of a file
-in it. Standard library only, so agents can run the self-checks with python3.
+The checked tree is the working tree as `git add -A` would record it, built in a temporary index and a throwaway
+object store under .review/ so the repository is untouched (whetstone-core's repo.py); the change is everything from
+the run's base commit (.review/base, else HEAD) to that tree. Every agent answer is checked against that tree: a
+quote must be the text around its hunk, and evidence a `path:line` of a file in it. The repository is the working
+directory, or the clone under repo/ in the harness layout. Standard library only, so agents can run the self-checks
+with python3.
 
   prepare                      build the tree, list its hunks, reuse earlier reads, write a prompt per reader batch
   check-read <batch> <file>    a reader's self-check of its draft answer
@@ -32,7 +34,7 @@ from pathlib import Path
 sys.dont_write_bytecode = True
 # whetstone-core's scripts, installed beside this extension (.specify/extensions/whetstone-core/scripts)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "whetstone-core" / "scripts"))
-import lockdown, runstate  # noqa: E402
+import lockdown, repo, runstate  # noqa: E402
 
 R = Path(".review")
 CUR = R / "current"
@@ -158,7 +160,7 @@ Work in this order:
 For each assertion, give the file and line of the test that settle it,
 and for WRONG, the failing case."""
 _EVIDENCE_RULE = ("\n\nRead and search only, never modify files. Evidence is a path:line of a file the commit will "
-                  "record, relative to the checkout root; an untracked or ignored file is not evidence.")
+                  "record, relative to the checkout's root; an untracked or ignored file is not evidence.")
 
 
 # --- I/O ---------------------------------------------------------------------------------------------
@@ -173,11 +175,20 @@ def fail(msg, **extra):
     out({"valid": False, "error": msg, **extra}, 1)
 
 
-git = lockdown.git
+git = repo.git
+_objects = None
+
+
+def objects_env() -> dict:
+    """The git environment that sees the tree built under .review/ (repo.change_tree)."""
+    global _objects
+    if _objects is None:
+        _objects = repo.objects_env()
+    return _objects
 
 
 def git_bytes(*args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(lockdown.git_cmd(*args), capture_output=True, env=lockdown.git_env())
+    return repo.git_bytes(*args, env=objects_env())
 
 
 def load(path: Path, default=None):
@@ -195,21 +206,18 @@ def base_commit() -> str:
 
 
 def commit_tree() -> str:
-    """The tree `git add -A` would record now, built in a temporary index under .review/ so neither the real index
-    nor TMPDIR (which agents can write) is touched. Hooks and the file system monitor are off (lockdown.git)."""
-    tmp = R / "tmp"
-    shutil.rmtree(tmp, ignore_errors=True)
-    tmp.mkdir(parents=True)
-    env = {"GIT_INDEX_FILE": str((tmp / "index").resolve())}
+    """The tree `git add -A` would record now (repo.change_tree: a temporary index and a throwaway object store
+    under .review/, hooks and the file system monitor off). It must be the tree `setup` recorded, if there is one:
+    a working tree that changed during the run is not the one the review looked at."""
     try:
-        git("read-tree", "HEAD", env=env)
-        git("add", "-A", env=env)
-        return git("write-tree", env=env)
+        tree = repo.change_tree()
     except subprocess.CalledProcessError as e:
         fail(f"git cannot record the working tree ({(e.stderr or '').strip()[:300]}); a nested repository without "
              "commits, for example, must be removed or committed first")
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
+    if (R / "tree").exists() and (R / "tree").read_text().strip() != tree:
+        fail("the working tree changed since this run started (its tree is no longer the one recorded in "
+             ".review/tree); start a new run")
+    return tree
 
 
 class Tree:
@@ -331,7 +339,7 @@ def citations(text: str, located) -> tuple[list[str], list[str]]:
     """The `path:line` citations in `text` that name a line of the checked tree, and those that do not."""
     good, bad = [], []
     for found in _CITATION.finditer(_URL.sub(" ", text or "")):
-        path = found["path"].removeprefix("./")
+        path = repo.canon(found["path"], lambda p: located(p) is not None)
         size = located(path)
         if size is not None and 1 <= int(found["line"]) <= size:
             good.append(f"{path}:{found['line']}")
@@ -442,12 +450,21 @@ def broken(verdict: dict) -> dict:
 
 # --- prompts ---------------------------------------------------------------------------------------------
 
+def where(root: str) -> str:
+    """Where the checkout is, as told to an agent whose cwd is the working directory."""
+    if repo.harness():
+        return (f"the checkout at {root} (the directory `{repo.MOUNT}/` in your working directory; read its files "
+                f"under `{repo.MOUNT}/`, run git as `git -C {repo.MOUNT} ...`, and give every path in your answer "
+                f"relative to that checkout's root, without the `{repo.MOUNT}/` prefix)")
+    return f"the checkout at {root} (your working directory)"
+
+
 def reader_prompt(root: str, batch: int, hunks: list[dict]) -> str:
     shown = "\n\n".join(
         f"{h['id']}: {h['file']}, staged lines {h['new_start']}-{h['new_start'] + max(h['new_count'], 1) - 1}\n"
         + "".join(f"- {line}\n" for line in h["removed"]) + "".join(f"+ {line}\n" for line in h["added"])
         for h in hunks)
-    return (f"These are hunks of a change in the checkout at {root}. The files there are as the change leaves them.\n\n"
+    return (f"These are hunks of a change in {where(root)}. The files there are as the change leaves them.\n\n"
             f"{shown}\n\n{_READER_TASK}\n\n"
             "## Answer\n\n"
             "Your answer is one strict JSON document:\n\n"
@@ -462,14 +479,14 @@ def reader_prompt(root: str, batch: int, hunks: list[dict]) -> str:
 
 def judge_prompt(root: str, claim: dict) -> str:
     if claim["category"] == "K9":
-        head = ("You are checking what a test says it checks, in the codebase checked\n"
-                f"out at {root}, as the change leaves it.\n"
+        head = ("You are checking what a test says it checks, in the codebase in\n"
+                f"{where(root)}, as the change leaves it.\n"
                 "That checkout is the source of truth. The claim is a test's name,\n"
                 f"description or failure message, from `{claim['file']}` line {claim['line']}.\n\n"
                 f"Claim: {claim['quote']}\n" + _TEST_JUDGE_TAIL)
     else:
-        head = ("You are checking a claim made in the documentation of the codebase checked\n"
-                f"out at {root}, as the change leaves it.\n"
+        head = ("You are checking a claim made in the documentation of the codebase in\n"
+                f"{where(root)}, as the change leaves it.\n"
                 f"That checkout is the source of truth. The claim comes from `{claim['file']}`\n"
                 f"line {claim['line']}.\n\nClaim: {claim['quote']}\n" + _JUDGE_TAIL)
     cid = claim["id"]

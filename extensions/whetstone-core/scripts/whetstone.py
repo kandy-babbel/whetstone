@@ -5,25 +5,29 @@ Modules exchange files under .review/current/, each checked against its JSON Sch
 on standard output; `fetch` takes an answer from Spec Kit's run state into .review/current/. A module that is
 switched off writes no file; this script then applies that module's documented fallback. Every subcommand prints one
 JSON object (read by Spec Kit with output_format: json) and exits 1 when a contract is broken, which fails the step
-and the run. Whetstone changes nothing in the repository: it writes only .review/.
+and the run. Whetstone changes nothing in the repository under review: it writes only .review/ in the working
+directory, which is the repository itself (in-repo layout) or a harness of your own with the repository cloned
+under repo/ (harness layout; see repo.py).
 
-Run with: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I whetstone.py <cmd>
+Run with: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I -X pycache_prefix=.review/pyc whetstone.py <cmd>
 Repository settings: whetstone-core-config.yml next to this extension (base_ref).
 
   setup                      check the lockdown, TMPDIR and the integrity of .claude/ and .specify/; archive an earlier
-                             run; record the base commit and the change's files; start the ledger
-  guard                      before every agent step: the lockdown flags and the integrity check again
+                             run; record the repository, its branch, HEAD, the base commit, the tree of the change,
+                             its diff and its files; start the ledger
+  guard                      before every agent step: the lockdown, the integrity check and the repository again
   fetch <file> --command C [--args A] | --prompt P
                              after an agent step: its answer, taken from the run state into .review/current/<file>
   canary-open                a nonce for the canary agent
   canary-check               the canary agent must have run its script with that nonce, and no protected path may
                              have been written
   validate <schema> <file>   validate one file against one schema
-  summarize                  validate findings (+ triage if present), count actionable findings
+  summarize                  validate findings (+ triage if present), check they describe this change, count
+                             actionable findings
   report                     write .review/report.json; say whether a person must look (WRONG, unread, unjudged claims)
   finish                     record the gate's answer, if there was one
 """
-import datetime, json, os, shutil, subprocess, sys, time
+import datetime, json, os, re, shutil, subprocess, sys, time
 from pathlib import Path
 
 import yaml
@@ -33,7 +37,7 @@ from referencing.jsonschema import DRAFT202012
 
 sys.dont_write_bytecode = True  # no __pycache__ under .specify/: it would fail the integrity check
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import lockdown, runstate  # noqa: E402
+import lockdown, repo, runstate  # noqa: E402
 
 R = Path(".review")
 CUR = R / "current"
@@ -43,6 +47,7 @@ CONFIG = EXT / "whetstone-core-config.yml"
 BLOCKING = {"Critical", "Important"}
 CANARY_COMMAND = "speckit.whetstone-core.canary"
 LEDGER_KEYS = ("dismissed", "follow_ups", "warnings", "claims_wrong", "claim_notes", "unread", "unjudged", "gate")
+KEEP = {"previous", "archive", "pyc"}  # what stays at the top of .review/ when a new run starts
 
 
 def out(obj, code=0):
@@ -55,14 +60,8 @@ def fail(msg, **extra):
     out({"valid": False, "error": msg, **extra}, 1)
 
 
-git = lockdown.git
-
-
-def git_paths(*args):
-    """Paths from a git command run with -z, so names with spaces or non-ASCII characters survive."""
-    out_ = subprocess.run(lockdown.git_cmd(*args, "-z"), check=True, capture_output=True, text=True,
-                          env=lockdown.git_env()).stdout
-    return [p for p in out_.split("\0") if p]
+def recorded(name):
+    return (R / name).read_text().strip()
 
 
 def round_no():
@@ -120,20 +119,48 @@ def record(l, key, entry):
 
 
 def lockdown_errors(*, fresh_tmpdir=False):
-    return lockdown.agent_flag_errors() + lockdown.tmpdir_errors(fresh=fresh_tmpdir) + lockdown.integrity_errors()
+    return (lockdown.agent_flag_errors() + lockdown.tmpdir_errors(fresh=fresh_tmpdir) + lockdown.pyc_errors()
+            + lockdown.integrity_errors())
 
 
 def guard():
-    errors = lockdown_errors()
+    errors = lockdown_errors() + repo.errors()
     if errors:
         fail("agents would not run locked down: " + "; ".join(errors))
     out({"valid": True})
 
 
-def changed_files(base):
-    """The files the change under review touches: committed since base, changed in the working tree, or new."""
-    found = set(git_paths("diff", "--name-only", base)) | set(git_paths("ls-files", "--others", "--exclude-standard"))
-    return sorted(found)
+def exists_in_tree(path):
+    return (repo.ROOT / path).exists()
+
+
+def slug(branch):
+    return re.sub(r"[^A-Za-z0-9._-]+", "_", branch)[:80] or "detached"
+
+
+def archive(branch):
+    """A new run starts fresh. The earlier run's files move to .review/previous/<time>/. previous/ holds only runs
+    of the branch under review: another branch's runs are kept under .review/archive/<branch>/ and come back when
+    that branch is reviewed again, so one branch's dismissals never silence findings on another."""
+    earlier = [p for p in R.iterdir() if p.name not in KEEP]
+    was = recorded("branch") if (R / "branch").exists() else branch
+    if earlier:
+        dest = R / "previous" / datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+        dest.mkdir(parents=True)
+        for p in earlier:
+            shutil.move(str(p), str(dest / p.name))
+    if was != branch:
+        old, new = R / "archive" / slug(was), R / "archive" / slug(branch)
+        if (R / "previous").exists():
+            old.mkdir(parents=True, exist_ok=True)
+            for p in (R / "previous").iterdir():
+                shutil.move(str(p), str(old / p.name))
+            (R / "previous").rmdir()
+        if new.exists():
+            (R / "previous").mkdir()
+            for p in new.iterdir():
+                shutil.move(str(p), str(R / "previous" / p.name))
+            new.rmdir()
 
 
 def setup():
@@ -152,27 +179,50 @@ def setup():
         if subprocess.run(lockdown.git_cmd("check-ignore", "-q", d + "x"), env=lockdown.git_env()).returncode != 0:
             fail(f"{d} is not ignored by git; add `{d}` to .gitignore")
     R.mkdir(exist_ok=True)
-    # A new run starts fresh: an earlier run's files move to .review/previous/.
-    earlier = [p for p in R.iterdir() if p.name != "previous"]
-    if earlier:
-        dest = R / "previous" / datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
-        dest.mkdir(parents=True)
-        for p in earlier:
-            shutil.move(str(p), str(dest / p.name))
     try:
-        base = git("merge-base", base_ref, "HEAD")
+        branch = repo.git("branch", "--show-current") or "detached"
+    except subprocess.CalledProcessError:
+        branch = "detached"
+    archive(branch)
+    errors = repo.errors()
+    if errors:
+        fail("the repository under review: " + "; ".join(errors))
+    try:
+        base = repo.git("merge-base", base_ref, "HEAD")
     except subprocess.CalledProcessError as e:
         fail(f"git merge-base {base_ref} HEAD failed ({e.stderr.strip() or e.returncode}); "
-             f"set base_ref in {CONFIG} to the branch pull requests merge into")
+             f"set base_ref in {CONFIG} to the branch pull requests merge into (fetch it first)")
+    head = repo.git("rev-parse", "HEAD")
+    (R / "root").write_text(str(repo.ROOT) + "\n")
+    (R / "branch").write_text(branch + "\n")
+    (R / "head").write_text(head + "\n")
     (R / "base").write_text(base + "\n")
     (R / "run-id").write_text(runstate.run_id() + "\n")  # later steps refuse to touch another run's files
     save_ledger({k: [] for k in LEDGER_KEYS})
     (R / "round").write_text("1\n")
     CUR.mkdir(parents=True)
     (CUR / ".started").write_text(f"{time.time()}\n")
-    files = changed_files(base)
+    try:
+        tree = repo.change_tree()
+    except subprocess.CalledProcessError as e:
+        fail(f"git cannot record the working tree ({(e.stderr or '').strip()[:300]}); a nested repository without "
+             "commits, for example, must be removed or committed first")
+    (R / "tree").write_text(tree + "\n")
+    env = repo.objects_env()
+    files = sorted(repo.git_paths("diff", "--name-only", "--no-renames", base, tree, env=env))
+    if not repo.harness():
+        touched = [f for f in files if f.startswith(tuple(p + "/" for p in lockdown.PROTECTED))]
+        if touched and os.environ.get("WHETSTONE_ALLOW_PROTECTED", "").split("=")[-1].lower() != "true":
+            fail(f"the change under review alters {' or '.join(lockdown.PROTECTED)} ({touched[:5]}): Whetstone's own "
+                 "skills, workflows and scripts live there, so review that part by hand first, or run with "
+                 "--input allow_protected=true")
+    d = repo.git_bytes("diff", "-a", "--no-textconv", "--no-ext-diff", "--no-color", "--no-renames", base, tree, env=env)
+    if d.returncode != 0:
+        fail(f"git diff failed: {d.stderr.decode(errors='replace').strip()[:300]}")
+    (CUR / "diff.patch").write_bytes(d.stdout)
     (CUR / "pr-files.txt").write_text("".join(f + "\n" for f in files))
-    out({"valid": True, "base": base, "base_ref": base_ref, "head": git("rev-parse", "HEAD"), "changed_files": len(files)})
+    out({"valid": True, "root": str(repo.ROOT), "branch": branch, "head": head, "base": base, "base_ref": base_ref,
+         "tree": tree, "changed_files": len(files)})
 
 
 def _find(argv):
@@ -199,8 +249,13 @@ def fetch():
 
 
 def canary_targets(nonce):
-    return [f"canary-{nonce}", f".git/canary-{nonce}", f".review/canary-{nonce}", f".specify/canary-{nonce}",
-            f".claude/canary-{nonce}", os.path.expanduser(f"~/.claude/canary-{nonce}")]
+    """The same list canary.py builds: the working directory and every protected place, and in the harness layout
+    the clone and its git directory."""
+    targets = [f"canary-{nonce}", f".git/canary-{nonce}", f".review/canary-{nonce}", f".specify/canary-{nonce}",
+               f".claude/canary-{nonce}", os.path.expanduser(f"~/.claude/canary-{nonce}")]
+    if repo.harness():
+        targets += [f"{repo.MOUNT}/canary-{nonce}", f"{repo.MOUNT}/.git/canary-{nonce}"]
+    return targets
 
 
 def canary_open():
@@ -212,7 +267,7 @@ def canary_open():
 
 
 def canary_check():
-    nonce = (R / "canary-nonce").read_text().strip()
+    nonce = recorded("canary-nonce")
     expected = canary_targets(nonce)
     # The paths come from the nonce, never from the agent: an agent cannot make this step delete anything else.
     leaked = [t for t in expected if os.path.lexists(t)]
@@ -237,8 +292,20 @@ def summarize():
     runstate.bound_run_id()
     n = round_no()
     f = validate("findings.schema.json", CUR / "findings.json")
-    if f["base"] != (R / "base").read_text().strip():
+    if f["base"] != recorded("base"):
         fail(f"findings.json base {f['base']} is not this run's base")
+    if f["head"] != recorded("head"):
+        fail(f"findings.json head {f['head']} is not the HEAD of the repository under review ({recorded('head')}); "
+             "the review did not look at it")
+    for x in f["findings"]:
+        x["file"] = repo.canon(x["file"], exists_in_tree)
+    reviewed = {repo.canon(p, exists_in_tree) for p in f["files_reviewed"]}
+    pr_files = set((CUR / "pr-files.txt").read_text().splitlines()) - {""}
+    if reviewed != pr_files:
+        fail("findings.json files_reviewed is not the change's file list (.review/current/pr-files.txt): "
+             f"missing {sorted(pr_files - reviewed)[:5]}, extra {sorted(reviewed - pr_files)[:5]}")
+    f["files_reviewed"] = sorted(reviewed)
+    (CUR / "findings.json").write_text(json.dumps(f, indent=2) + "\n")  # paths canonical for the modules after this
     ids = [x["id"] for x in f["findings"]]
     if len(ids) != len(set(ids)):
         fail("findings.json has duplicate finding ids")
@@ -284,6 +351,7 @@ def report():
             fail(f"shim-check.json has no result for actionable findings {missing}")
         for r in shim.values():
             for o in r["occurrences"]:
+                o["file"] = repo.canon(o["file"], exists_in_tree)
                 if o["in_pr"] != (o["file"] in pr_files):
                     fail(f"shim-check.json {r['finding_id']}: {o['file']} in_pr={o['in_pr']} contradicts the change's file list")
                 if not o["in_pr"]:
@@ -314,7 +382,8 @@ def report():
         if claims.get("warning"):
             record(l, "warnings", {"round": n, "warning": claims["warning"]})
     save_ledger(l)
-    doc = {"round": n, "base": (R / "base").read_text().strip(), "head": git("rev-parse", "HEAD"),
+    doc = {"round": n, "root": recorded("root"), "branch": recorded("branch"), "base": recorded("base"),
+           "head": recorded("head"), "tree": recorded("tree"),
            "changed_files": sorted(pr_files), "findings": summary, "shim_check": list(shim.values()) if shim else None,
            "claim_check": {k: claims[k] for k in ("tree", "counts", "not_judged", "unread", "unjudged")} if claims else None,
            **{k: l[k] for k in LEDGER_KEYS}}

@@ -7,17 +7,22 @@ answer: the findings as one JSON document, on its standard output. The workflow'
 `.review/current/findings.json`.
 
 pr-review-toolkit chooses which of its agents to run from the diff. Whetstone
-asks for every applicable review except code-simplifier. The repository is
-read-only for the agent.
+asks for every applicable review except code-simplifier, on the diff `setup`
+recorded in `.review/current/diff.patch`, not on one the agent computes. The
+repository is read-only for the agent. In the harness layout it is the clone under
+`repo/`; the agent reports paths relative to it.
 
 ## Contract
 
-- **Reads:** `.review/base`, `.review/round`, earlier runs' ledgers under
-  `.review/previous/` (so it does not report dismissed findings again).
+- **Reads:** `.review/base`, `.review/round`, `.review/current/diff.patch` and
+  `pr-files.txt`, earlier runs' ledgers under `.review/previous/` (runs of this
+  branch, so it does not report dismissed findings again).
 - **Writes:** `.review/current/findings.json`
-  (`whetstone-core/schemas/findings.schema.json`). Severity maps from the review
-  summary: Critical Issues → `Critical`, Important Issues → `Important`,
-  Suggestions → `Minor`. Only Critical and Important findings are acted on.
+  (`whetstone-core/schemas/findings.schema.json`). `head` must be the `HEAD`
+  `setup` recorded and `files_reviewed` the change's whole file list, or the core
+  refuses the review. Severity maps from the review summary: Critical Issues →
+  `Critical`, Important Issues → `Important`, Suggestions → `Minor`. Only Critical
+  and Important findings are acted on.
 
 ## Use on its own
 

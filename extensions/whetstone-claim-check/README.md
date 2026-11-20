@@ -11,9 +11,13 @@ rules for a reader's and a judge's answers are taken over as they are.
 
 ## How it works
 
-1. **prepare** builds the tree `git add -A` would record, in a temporary index under
-   `.review/` (the real index is untouched). It lists the hunks from the run's base
-   commit (`.review/base`, else `HEAD`) to that tree.
+1. **prepare** builds the tree `git add -A` would record, in a temporary index and a
+   throwaway object store under `.review/` (the repository's index and objects are
+   untouched; whetstone-core's `repo.py`). In a full run it must be the tree `setup`
+   recorded. It lists the hunks from the run's base commit (`.review/base`, else
+   `HEAD`) to that tree. The repository is the working directory, or the clone under
+   `repo/` in the harness layout; the prompts tell each agent which, and every path
+   an agent writes is read relative to the repository (`repo/` prefix mapped back).
 2. **read**: readers (16 hunks each, one `whetstone-claim-read` workflow per batch)
    label every hunk `CODE`, `PROSE` or `MIXED` and quote every claim its text makes,
    with one category:
@@ -83,8 +87,8 @@ is checked.
 ## Contract
 
 - **Reads:** the working tree, `HEAD`, the run's base in `.review/base` if there is
-  one (`HEAD` otherwise) and its round in `.review/round` (0 otherwise); the run
-  state (`WHETSTONE_RUN_ID`).
+  one (`HEAD` otherwise), its tree in `.review/tree` if there is one, and its round
+  in `.review/round` (0 otherwise); the run state (`WHETSTONE_RUN_ID`).
 - **Writes:** `.review/current/claim-check.json`
   (`whetstone-core/schemas/claim-check.schema.json`):
   - `base` and `tree`, the commits the change was measured between;
@@ -105,7 +109,8 @@ specify workflow run whetstone-claim-check --input model=opus
 ```
 
 It needs the lockdown (repository README) and a `HEAD` commit. With no change it
-records no claims.
+records no claims. A module run on its own needs a `.review/` that no full run owns:
+remove `.review/` first if a `whetstone` run left one.
 
 ## Left out from the source
 

@@ -13,8 +13,11 @@ Read `.review/current/claims/claim-$ARGUMENTS.md` and do exactly what it says.
 It gives the claim, how to judge it and the answer format, and ends with the
 self-check to run on your draft until it prints OK.
 
-Every piece of evidence is a `path:line` of a file in the checkout. The check
-refuses a verdict that cites anything else.
+Every piece of evidence is a `path:line` of a file in the checkout, relative to
+the checkout's root. The check refuses a verdict that cites anything else. The
+claim file says where the checkout is: your working directory, or the clone in
+`repo/` next to `.review/` (then read files under `repo/`, run git as
+`git -C repo ...`, and cite paths without the `repo/` prefix).
 
 The repository is read-only for you; your draft goes under `$TMPDIR`. Your final
 answer is the draft's content: one JSON document, no code fence, nothing else.

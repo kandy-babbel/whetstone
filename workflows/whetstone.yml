@@ -2,7 +2,7 @@ schema_version: '1.0'
 workflow:
   id: whetstone
   name: Whetstone
-  version: 0.4.0
+  version: 0.5.0
   author: Kirill Andriychuk
   description: Review a change with pr-review-toolkit, drop bikeshedding, size each fix, and check every claim its text makes; a report for the person or agent who fixes it. Reads the repository only.
 requires:
@@ -23,13 +23,17 @@ inputs:
   triage_threshold:
     type: number
     default: 0.5
+  allow_protected:
+    type: boolean
+    default: false
 steps:
 - id: setup
   type: shell
   output_format: json
-  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I .specify/extensions/whetstone-core/scripts/whetstone.py setup
+  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I -X pycache_prefix=.review/pyc .specify/extensions/whetstone-core/scripts/whetstone.py setup
   env:
     WHETSTONE_TRIAGE: t={{ inputs.triage }}
+    WHETSTONE_ALLOW_PROTECTED: t={{ inputs.allow_protected }}
     WHETSTONE_RUN_ID: '{{ context.run_id }}'
 - id: canary
   type: workflow
@@ -49,7 +53,7 @@ steps:
 - id: summary
   type: shell
   output_format: json
-  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I .specify/extensions/whetstone-core/scripts/whetstone.py summarize
+  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I -X pycache_prefix=.review/pyc .specify/extensions/whetstone-core/scripts/whetstone.py summarize
   env:
     WHETSTONE_RUN_ID: '{{ context.run_id }}'
 - id: shim_check_on
@@ -71,7 +75,7 @@ steps:
 - id: report
   type: shell
   output_format: json
-  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I .specify/extensions/whetstone-core/scripts/whetstone.py report
+  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I -X pycache_prefix=.review/pyc .specify/extensions/whetstone-core/scripts/whetstone.py report
   env:
     WHETSTONE_RUN_ID: '{{ context.run_id }}'
 - id: needs_human
@@ -88,7 +92,7 @@ steps:
 - id: finish
   type: shell
   output_format: json
-  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I .specify/extensions/whetstone-core/scripts/whetstone.py finish
+  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I -X pycache_prefix=.review/pyc .specify/extensions/whetstone-core/scripts/whetstone.py finish
   env:
     WHETSTONE_GATE: '{{ steps.claims_gate.output.choice | default("") }}'
     WHETSTONE_RUN_ID: '{{ context.run_id }}'

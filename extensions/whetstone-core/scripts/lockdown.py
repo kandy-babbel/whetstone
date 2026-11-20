@@ -21,7 +21,11 @@ REQUIRED_CLAUDE_MD_EXCLUDES = ("**/CLAUDE.md", "**/CLAUDE.local.md")
 REQUIRED_FLAGS = ("--strict-mcp-config",)
 FORBIDDEN_FLAGS = ("--dangerously-skip-permissions", "--allow-dangerously-skip-permissions", "--dangerously-disable-sandbox")
 FORBIDDEN_MODES = ("bypassPermissions", "auto")
-SETTINGS = {"sandbox": {"enabled": True, "allowUnsandboxedCommands": False, "failIfUnavailable": True},
+PYC_ENV = "PYTHONPYCACHEPREFIX"  # where Python keeps compiled files: never inside the tree it imports from
+# autoAllowBashIfSandboxed: a command runs without a permission prompt because the sandbox confines it. Without it
+# (Claude Code 2.1.329 and later) every command of a `claude -p` agent is refused for want of a prompt.
+SETTINGS = {"sandbox": {"enabled": True, "allowUnsandboxedCommands": False, "failIfUnavailable": True,
+                        "autoAllowBashIfSandboxed": True},
             "disableAllHooks": True, "claudeMdExcludes": list(REQUIRED_CLAUDE_MD_EXCLUDES),
             "permissions": {"deny": [REQUIRED_DENY]}}
 SETTINGS_JSON = json.dumps(SETTINGS, separators=(",", ":"))
@@ -94,15 +98,35 @@ def agent_flag_errors(value: str | None = None, executable: str | None = None) -
         if sandbox.get("failIfUnavailable") is not True:
             errors.append("--settings must set sandbox.failIfUnavailable to true (without it, an agent whose sandbox "
                           "cannot start runs with no sandbox at all)")
+        if sandbox.get("autoAllowBashIfSandboxed") is not True:
+            errors.append("--settings must set sandbox.autoAllowBashIfSandboxed to true (without it, no command an "
+                          "agent runs is allowed)")
     if s.get("disableAllHooks") is not True:
         errors.append("--settings must set disableAllHooks to true")
     excludes = s.get("claudeMdExcludes") or []
     if not isinstance(excludes, list) or any(e not in excludes for e in REQUIRED_CLAUDE_MD_EXCLUDES):
         errors.append(f"--settings claudeMdExcludes must include {list(REQUIRED_CLAUDE_MD_EXCLUDES)}")
-    deny = ((s.get("permissions") or {}).get("deny") or []) if isinstance(s.get("permissions"), dict) else []
+    perms = s.get("permissions") if isinstance(s.get("permissions"), dict) else {}
+    deny = perms.get("deny") or []
     if REQUIRED_DENY not in deny:
         errors.append(f"--settings permissions.deny must include {REQUIRED_DENY}")
+    if perms.get("allow"):
+        errors.append(f"--settings permissions.allow must be empty; found {perms.get('allow')}")
     return errors
+
+
+def pyc_errors() -> list[str]:
+    """Python must keep compiled files away from the tree: a planted .pyc next to a script would run in its place."""
+    raw = os.environ.get(PYC_ENV)
+    if not raw:
+        return [f"{PYC_ENV} is not set; export {PYC_ENV}=$HOME/.cache/whetstone-pyc"]
+    p = Path(raw)
+    if not p.is_absolute():
+        return [f"{PYC_ENV} must be an absolute path"]
+    inside = [str(Path(d).resolve()) for d in (".", os.environ.get("TMPDIR", "")) if d]
+    if any(str(p.resolve()) == d or str(p.resolve()).startswith(d + os.sep) for d in inside):
+        return [f"{PYC_ENV} ({raw}) must lie outside the working directory and TMPDIR"]
+    return []
 
 
 def tmpdir_errors(*, fresh: bool = False) -> list[str]:
@@ -120,29 +144,41 @@ def tmpdir_errors(*, fresh: bool = False) -> list[str]:
     return []
 
 
-_IGNORED_OK = (".specify/workflows/runs/", "/.cache/", "__pycache__/", ".specify/.")
+_IGNORED_OK = (".specify/workflows/runs/", "/.cache/", ".specify/.")
+
+
+def _compiled(path: str) -> bool:
+    return path.endswith(".pyc") or "/__pycache__/" in path or path.endswith("/__pycache__")
 
 
 def integrity_errors() -> list[str]:
     """Why .claude/ and .specify/ (the skills, workflows and scripts agents and steps run from) are not exactly what
-    HEAD records: a modified, untracked or ignored file there, except Spec Kit's own run state and caches."""
+    HEAD records: a modified, untracked or ignored file there, except Spec Kit's own run state and caches. Compiled
+    Python is refused even when tracked: Python would run it in place of the script next to it."""
     r = subprocess.run(git_cmd("status", "--porcelain=v1", "-z", "--untracked-files=all", "--ignored=matching",
                                "--", *PROTECTED), capture_output=True, env=git_env())
     if r.returncode != 0:
         return [f"git status failed: {r.stderr.decode(errors='replace').strip()[:200]}"]
+    tracked = subprocess.run(git_cmd("ls-files", "-z", "--", *PROTECTED), capture_output=True, env=git_env())
+    compiled = [p for p in tracked.stdout.decode("utf-8", "surrogateescape").split("\0") if p and _compiled(p)]
+    if compiled:
+        return [f"compiled Python is committed under {' and '.join(PROTECTED)}; remove it: {compiled[:8]}"]
     bad = []
     for entry in r.stdout.decode("utf-8", "surrogateescape").split("\0"):
         if len(entry) < 4:
             continue
         code, path = entry[:2], entry[3:]
-        if code == "!!" and (path.startswith(_IGNORED_OK[0]) or any(m in path for m in _IGNORED_OK[1:])):
+        if code == "!!" and not _compiled(path) and (path.startswith(_IGNORED_OK[0])
+                                                    or any(m in path for m in _IGNORED_OK[1:])):
             continue
         # Claude Code itself creates this folder, empty, in every project it runs in; anything inside it counts.
         if path == ".claude/.cc-writes/" and Path(path).is_dir() and not any(Path(path).iterdir()):
             continue
         bad.append(f"{code.strip() or 'M'} {path}")
     if bad:
-        return [f"{' and '.join(PROTECTED)} differ from HEAD; commit or remove these first: {bad[:8]}"]
+        hint = (" (compiled Python under these directories is never allowed: export "
+                f"{PYC_ENV} as the README says, then delete it)" if any(_compiled(b) for b in bad) else "")
+        return [f"{' and '.join(PROTECTED)} differ from HEAD; commit or remove these first: {bad[:8]}{hint}"]
     return []
 
 

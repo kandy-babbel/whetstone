@@ -8,15 +8,17 @@ evidence leaves the machine, so an untracked, ignored or outside path is never e
 The evidence holds the finding, the code around it at HEAD, the CI check steps, and the
 repository's rules and tool configs named in whetstone-triage-config.yml
 (scaffolded by Spec Kit next to this extension; owned by the repository). Paths stay inside the
-project, as the decision step requires.
+project, as the decision step requires. The repository is the working directory, or the clone
+under repo/ when `setup` recorded that layout in .review/root (the harness layout).
 """
-import json, re, subprocess, sys
+import json, os, re, subprocess, sys
 from pathlib import Path
 import yaml
 
-if not __import__("os").environ.get("TYPESAFE_API_KEY"):
+if not os.environ.get("TYPESAFE_API_KEY"):
     sys.exit("TYPESAFE_API_KEY is not set; the decision step's Jev backend needs it")
 CUR = Path(".review/current")
+ROOT = Path((Path(".review/root").read_text().strip() if Path(".review/root").exists() else "."))
 CONFIG = Path(__file__).resolve().parent.parent / "whetstone-triage-config.yml"
 if not CONFIG.exists():
     sys.exit(f"{CONFIG} missing; copy whetstone-triage-config.template.yml there and edit it")
@@ -27,24 +29,24 @@ blocking = [f for f in findings if f["severity"] in ("Critical", "Important")]
 out = CUR / "triage-evidence"
 out.mkdir(exist_ok=True)
 
-
-TRACKED = set(p for p in subprocess.run(["git", "ls-files", "-z"], check=True, capture_output=True,
-                                          text=True).stdout.split("\0") if p)
+GIT_ENV = {**os.environ, "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1", "GIT_OPTIONAL_LOCKS": "0"}
+TRACKED = set(p for p in subprocess.run(["git", "-C", str(ROOT), "-c", "core.hooksPath=/dev/null", "-c",
+                                          "core.fsmonitor=false", "ls-files", "-z"], check=True,
+                                         capture_output=True, text=True, env=GIT_ENV).stdout.split("\0") if p)
 
 
 def tracked(p):
-    return isinstance(p, str) and p in TRACKED and Path(p).is_file()
+    return isinstance(p, str) and p in TRACKED and (ROOT / p).is_file() and not (ROOT / p).is_symlink()
 
 
 def read(p):
-    return Path(p).read_text(errors="replace") if tracked(p) else f"(not a tracked file: {p})"
+    return (ROOT / p).read_text(errors="replace") if tracked(p) else f"(not a tracked file: {p})"
 
 
 def excerpt(path, line, n):
-    p = Path(path)
     if not tracked(path):
         return f"(not a tracked file at HEAD: {path})"
-    lines = p.read_text(errors="replace").splitlines()
+    lines = (ROOT / path).read_text(errors="replace").splitlines()
     lo, hi = max(0, line - 1 - n), min(len(lines), line + n)
     return "\n".join(f"{i + 1:5}{'>' if i + 1 == line else ' '} {lines[i]}" for i in range(lo, hi))
 

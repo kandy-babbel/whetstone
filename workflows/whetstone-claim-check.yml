@@ -2,7 +2,7 @@ schema_version: '1.0'
 workflow:
   id: whetstone-claim-check
   name: 'Whetstone: claim check'
-  version: 0.4.0
+  version: 0.5.0
   author: Kirill Andriychuk
   description: Quote the claims in the text of the change and judge each K1/K9 claim against the tree the change leaves; write .review/current/claim-check.json. Reads the repository only.
 requires:
@@ -15,7 +15,7 @@ steps:
 - id: claims_prepare
   type: shell
   output_format: json
-  run: python3 -I .specify/extensions/whetstone-claim-check/scripts/claimcheck.py prepare
+  run: python3 -I -X pycache_prefix=.review/pyc .specify/extensions/whetstone-claim-check/scripts/claimcheck.py prepare
 - id: claims_read
   type: fan-out
   items: '{{ steps.claims_prepare.output.data.batches }}'
@@ -31,7 +31,7 @@ steps:
 - id: claims_accept
   type: shell
   output_format: json
-  run: python3 -I .specify/extensions/whetstone-claim-check/scripts/claimcheck.py accept
+  run: python3 -I -X pycache_prefix=.review/pyc .specify/extensions/whetstone-claim-check/scripts/claimcheck.py accept
   env:
     WHETSTONE_RUN_ID: '{{ context.run_id }}'
 - id: claims_judge
@@ -49,11 +49,11 @@ steps:
 - id: claims_settle
   type: shell
   output_format: json
-  run: python3 -I .specify/extensions/whetstone-claim-check/scripts/claimcheck.py settle
+  run: python3 -I -X pycache_prefix=.review/pyc .specify/extensions/whetstone-claim-check/scripts/claimcheck.py settle
   env:
     WHETSTONE_RUN_ID: '{{ context.run_id }}'
 - id: claims_validate
   type: shell
   output_format: json
-  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I .specify/extensions/whetstone-core/scripts/whetstone.py
+  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I -X pycache_prefix=.review/pyc .specify/extensions/whetstone-core/scripts/whetstone.py
     validate claim-check.schema.json .review/current/claim-check.json

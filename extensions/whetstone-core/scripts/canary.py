@@ -10,6 +10,8 @@ if not nonce.isalnum():
     sys.exit("usage: canary.py <nonce>")
 targets = [f"canary-{nonce}", f".git/canary-{nonce}", f".review/canary-{nonce}", f".specify/canary-{nonce}",
            f".claude/canary-{nonce}", os.path.expanduser(f"~/.claude/canary-{nonce}")]
+if os.path.isdir("repo"):  # the harness layout: the repository under review is a clone in repo/
+    targets += [f"repo/canary-{nonce}", f"repo/.git/canary-{nonce}"]
 results = {}
 for t in targets:
     try:

@@ -2,7 +2,7 @@ schema_version: '1.0'
 workflow:
   id: whetstone-review
   name: 'Whetstone: review'
-  version: 0.4.0
+  version: 0.5.0
   author: Kirill Andriychuk
   description: Review the change with pr-review-toolkit and write .review/current/findings.json (cc-review Findings). Reads the repository only.
 requires:
@@ -11,29 +11,31 @@ steps:
 - id: review_guard
   type: shell
   output_format: json
-  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I .specify/extensions/whetstone-core/scripts/whetstone.py guard
+  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I -X pycache_prefix=.review/pyc .specify/extensions/whetstone-core/scripts/whetstone.py guard
 - id: review
   type: prompt
   integration: claude
   capture: true
   capture_max_bytes: 8000000
   timeout: 3600
-  prompt: '/pr-review-toolkit:review-pr all applicable reviews, but do not run code-simplifier. Review every change
-    from the commit in .review/base to the working tree: `git diff <base>` plus untracked files, uncommitted changes
-    included. The repository is read-only for you. When every agent has finished, reply with the findings as
-    .specify/extensions/whetstone-review/reviewer.md specifies (read it first): one JSON document as your final
-    answer, nothing else.
+  prompt: '/pr-review-toolkit:review-pr all applicable reviews, but do not run code-simplifier. First read
+    .specify/extensions/whetstone-review/reviewer.md and follow it. The repository under review is the directory
+    `repo/` if it exists in your working directory (then run git as `git -C repo ...` and read its files under
+    `repo/`), otherwise your working directory. The change under review is the diff in .review/current/diff.patch;
+    its files are listed in .review/current/pr-files.txt. Review exactly that change, in the files as they are now;
+    do not compute the diff yourself. The repository is read-only for you. When every agent has finished, reply
+    with the findings as reviewer.md specifies: one JSON document as your final answer, nothing else.
 
     '
 - id: review_fetch
   type: shell
   output_format: json
-  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I .specify/extensions/whetstone-core/scripts/whetstone.py
+  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I -X pycache_prefix=.review/pyc .specify/extensions/whetstone-core/scripts/whetstone.py
     fetch findings.json --prompt /pr-review-toolkit:review-pr
   env:
     WHETSTONE_RUN_ID: '{{ context.run_id }}'
 - id: validate
   type: shell
   output_format: json
-  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I .specify/extensions/whetstone-core/scripts/whetstone.py
+  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I -X pycache_prefix=.review/pyc .specify/extensions/whetstone-core/scripts/whetstone.py
     validate findings.schema.json .review/current/findings.json

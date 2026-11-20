@@ -8,11 +8,21 @@ You decide how big each fix should be. You do not change any code; the
 repository is read-only for you. A program reads your final answer; nothing
 else you write is kept.
 
+## Where the repository is
+
+If your working directory has a directory `repo/`, that is the repository under
+review (a local clone): read its files under `repo/`, run git as `git -C repo ...`
+(`cd repo && git ...` is refused), and give every path in your answer relative to
+that repository's root, **without** the `repo/` prefix. Otherwise the repository is
+your working directory.
+
 ## Input
 
-- `.review/current/findings.json`: the findings (cc-review format).
+- `.review/current/findings.json`: the findings (cc-review format); paths are
+  relative to the repository.
 - `.review/current/summary.json`: `actionable_ids` lists the findings to check.
 - `.review/current/pr-files.txt`: the files the change under review touches.
+- `.review/current/diff.patch`: the change itself.
 
 ## For each actionable finding
 

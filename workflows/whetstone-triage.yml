@@ -2,7 +2,7 @@ schema_version: '1.0'
 workflow:
   id: whetstone-triage
   name: 'Whetstone: triage'
-  version: 0.4.0
+  version: 0.5.0
   author: Kirill Andriychuk
   description: Decide with the decision step whether each blocking finding is bikeshedding; write .review/current/triage.json
 requires:
@@ -15,7 +15,7 @@ steps:
 - id: gather
   type: shell
   output_format: json
-  run: uv run --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 .specify/extensions/whetstone-triage/scripts/gather.py
+  run: uv run --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I -X pycache_prefix=.review/pyc .specify/extensions/whetstone-triage/scripts/gather.py
 - id: decide
   type: fan-out
   items: '{{ steps.gather.output.data.items }}'
@@ -60,7 +60,7 @@ steps:
 - id: collect
   type: shell
   output_format: json
-  run: uv run --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 .specify/extensions/whetstone-triage/scripts/collect.py
+  run: uv run --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I -X pycache_prefix=.review/pyc .specify/extensions/whetstone-triage/scripts/collect.py
   env:
     RESULTS: '{{ steps.decide.output.results | to_json }}'
     THRESHOLD: t={{ inputs.threshold }}
@@ -68,5 +68,5 @@ steps:
 - id: validate
   type: shell
   output_format: json
-  run: uv run --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 .specify/extensions/whetstone-core/scripts/whetstone.py validate
+  run: uv run --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I -X pycache_prefix=.review/pyc .specify/extensions/whetstone-core/scripts/whetstone.py validate
     triage.schema.json .review/current/triage.json

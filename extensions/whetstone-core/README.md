@@ -34,12 +34,12 @@ environment variable `WHETSTONE_RUN_ID` set to `{{ context.run_id }}`.
 
 | Command | Does |
 |---|---|
-| `setup` | refuses a missing lockdown (the agents' flags, `TMPDIR`, `.claude/` and `.specify/` not equal to `HEAD`), an un-ignored `.review/` or `.specify/workflows/runs/`, or triage without `TYPESAFE_API_KEY`; moves an earlier run to `.review/previous/`; records the base commit (`merge-base <base_ref> HEAD`), the run id, the change's files (`pr-files.txt`) and starts `.review/ledger.json` |
-| `guard` | before every agent step: the flags, `TMPDIR` and the integrity check again |
+| `setup` | refuses a missing lockdown (the agents' flags, `TMPDIR`, `PYTHONPYCACHEPREFIX`, `.claude/` and `.specify/` not equal to `HEAD` or holding compiled Python), an un-ignored `.review/` or `.specify/workflows/runs/`, triage without `TYPESAFE_API_KEY`, a `repo/` that is not a plain local clone, or (in a repository) a change that touches `.claude/` or `.specify/` without `WHETSTONE_ALLOW_PROTECTED`; moves an earlier run to `.review/previous/` (another branch's runs to `.review/archive/<branch>/`); records `root`, `branch`, `head`, the base commit (`merge-base <base_ref> HEAD`), the `tree` of the change, the run id, the change's diff (`diff.patch`) and files (`pr-files.txt`) and starts `.review/ledger.json` |
+| `guard` | before every agent step: the flags, `TMPDIR`, `PYTHONPYCACHEPREFIX`, the integrity check and the repository (`repo/` unchanged, `HEAD` unchanged) again |
 | `fetch <file> --command C [--args A]` / `--prompt P` | after an agent step: the answer of the step that ran command `C` (with argument `A`), or whose prompt starts with `P`, taken from the run state into `.review/current/<file>` |
-| `canary-open`, `canary-check` | around the canary agent (workflow `whetstone-canary`): the paths are computed from the nonce; none may exist, and the agent's answer must be the script's output for that nonce |
+| `canary-open`, `canary-check` | around the canary agent (workflow `whetstone-canary`): the paths are computed from the nonce (and, with `repo/`, include the clone and its `.git`); none may exist, and the agent's answer must be the script's output for that nonce |
 | `validate <schema> <file>` | checks one file against one schema |
-| `summarize` | validates findings (and triage, if present); counts Critical and Important findings not dismissed as `actionable` |
+| `summarize` | validates findings (and triage, if present); requires the review's `head` to be the recorded one and `files_reviewed` to be the change's file list; maps `repo/`-prefixed paths back; counts Critical and Important findings not dismissed as `actionable` |
 | `report` | validates the shim check and the claim check (if present), records follow-ups, WRONG claims, UNSURE notes, unread files and unjudged claims in the ledger, writes `.review/report.json`, and says whether a person must look (`needs_human`, with the gate's `message`) |
 | `finish` | records the gate's answer (`WHETSTONE_GATE`) in the ledger and the report |
 
@@ -53,9 +53,11 @@ files.
   (the repository README's table), and that `SPECKIT_INTEGRATION_CLAUDE_EXECUTABLE`
   is unset.
 - `tmpdir_errors`: `TMPDIR` set, absolute, at most 60 bytes, and empty at `setup`.
+- `pyc_errors`: `PYTHONPYCACHEPREFIX` set, absolute, outside the working directory
+  and `TMPDIR`.
 - `integrity_errors`: `git status` of `.claude/` and `.specify/` shows nothing but
   Spec Kit's run state, caches and lock files, and Claude Code's empty
-  `.claude/.cc-writes/`.
+  `.claude/.cc-writes/`; no compiled Python there, tracked or not.
 - `git`, `git_cmd`, `git_env`: git with `GIT_CONFIG_GLOBAL=/dev/null`,
   `GIT_CONFIG_NOSYSTEM=1`, `core.hooksPath=/dev/null` and `core.fsmonitor=false`, for
   every git call Whetstone makes.
@@ -66,6 +68,14 @@ tree in `state.json`, finds a step by the command and argument, or the prompt, t
 Spec Kit recorded from the workflow definition, requires exit code 0, no truncation,
 and a successful `--output-format json` envelope, and parses the one JSON document
 in the answer.
+
+`scripts/repo.py` is the repository under review as the steps see it: the working
+directory, or the clone under `repo/` when that directory exists (the harness
+layout). It runs git there with the lockdown's environment, checks the clone
+(`errors`: a directory, not a link; `repo/.git` a directory of its own; git's root
+and `HEAD` as recorded), builds the tree of the change in a temporary index and a
+throwaway object store under `.review/tmp/objects` (`change_tree`, `objects_env`),
+and maps a path an agent wrote with the `repo/` prefix back (`canon`).
 
 ## Configuration
 
@@ -79,7 +89,7 @@ base_ref: origin/main   # the branch pull requests merge into
 ## Requirements
 
 `git`, `python3`, `uv`. jsonschema and PyYAML are fetched by `uv run`;
-`lockdown.py` and `runstate.py` use the standard library only, so the claim check
-can import them under plain `python3`.
+`lockdown.py`, `runstate.py` and `repo.py` use the standard library only, so the
+claim check can import them under plain `python3`.
 
 See `NOTICE.md` for the origin of `finding.schema.json`.

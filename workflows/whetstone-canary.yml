@@ -2,7 +2,7 @@ schema_version: '1.0'
 workflow:
   id: whetstone-canary
   name: 'Whetstone: lockdown canary'
-  version: 0.4.0
+  version: 0.5.0
   author: Kirill Andriychuk
   description: Run an agent that tries to write the repository and the other protected paths; fail unless every write fails
 requires:
@@ -15,11 +15,11 @@ steps:
 - id: canary_open
   type: shell
   output_format: json
-  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I .specify/extensions/whetstone-core/scripts/whetstone.py canary-open
+  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I -X pycache_prefix=.review/pyc .specify/extensions/whetstone-core/scripts/whetstone.py canary-open
 - id: canary_guard
   type: shell
   output_format: json
-  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I .specify/extensions/whetstone-core/scripts/whetstone.py guard
+  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I -X pycache_prefix=.review/pyc .specify/extensions/whetstone-core/scripts/whetstone.py guard
 - id: canary
   type: command
   command: speckit.whetstone-core.canary
@@ -33,6 +33,6 @@ steps:
 - id: canary_check
   type: shell
   output_format: json
-  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I .specify/extensions/whetstone-core/scripts/whetstone.py canary-check
+  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I -X pycache_prefix=.review/pyc .specify/extensions/whetstone-core/scripts/whetstone.py canary-check
   env:
     WHETSTONE_RUN_ID: '{{ context.run_id }}'

@@ -11,14 +11,16 @@ and chooses:
 - `simpler_than_suggested`: the reviewer's suggested fix is larger than the
   problem warrants.
 
-It changes no code; the repository is read-only for the agent. It answers with one
-JSON document on its standard output, which the workflow's `fetch` step takes from
-the run state into `.review/current/shim-check.json`.
+It changes no code; the repository is read-only for the agent (the working
+directory, or the clone under `repo/` in the harness layout, with paths reported
+relative to it). It answers with one JSON document on its standard output, which
+the workflow's `fetch` step takes from the run state into
+`.review/current/shim-check.json`.
 
 ## Contract
 
 - **Reads:** `.review/current/findings.json`, `summary.json` (`actionable_ids`),
-  `pr-files.txt` (the change's files).
+  `pr-files.txt` (the change's files), `diff.patch` (the change).
 - **Writes:** `.review/current/shim-check.json`
   (`whetstone-core/schemas/shim-check.schema.json`). For each actionable finding:
   - `defect_class`;

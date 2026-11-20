@@ -16,7 +16,9 @@ self-check to run on your draft until it prints OK.
 
 A quote is copied from the file exactly as it stands, starting on the line you
 give. The check refuses any quote that does not match the file or lies outside
-the text around its hunk.
+the text around its hunk. The batch file says where the checkout is: your working
+directory, or the clone in `repo/` next to `.review/` (then read files under
+`repo/` and run git as `git -C repo ...`).
 
 The repository is read-only for you; your draft goes under `$TMPDIR`. Your final
 answer is the draft's content: one JSON document, no code fence, nothing else.

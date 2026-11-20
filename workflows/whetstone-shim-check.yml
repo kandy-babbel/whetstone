@@ -2,7 +2,7 @@ schema_version: '1.0'
 workflow:
   id: whetstone-shim-check
   name: 'Whetstone: shim check'
-  version: 0.4.0
+  version: 0.5.0
   author: Kirill Andriychuk
   description: Decide the defect class, other occurrences and fix strategy of each actionable finding; write .review/current/shim-check.json. Reads the repository only.
 requires:
@@ -11,7 +11,7 @@ steps:
 - id: shim_check_guard
   type: shell
   output_format: json
-  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I .specify/extensions/whetstone-core/scripts/whetstone.py guard
+  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I -X pycache_prefix=.review/pyc .specify/extensions/whetstone-core/scripts/whetstone.py guard
 - id: shim_check
   type: command
   command: speckit.whetstone-shim-check.run
@@ -22,12 +22,12 @@ steps:
 - id: shim_check_fetch
   type: shell
   output_format: json
-  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I .specify/extensions/whetstone-core/scripts/whetstone.py
+  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I -X pycache_prefix=.review/pyc .specify/extensions/whetstone-core/scripts/whetstone.py
     fetch shim-check.json --command speckit.whetstone-shim-check.run
   env:
     WHETSTONE_RUN_ID: '{{ context.run_id }}'
 - id: validate
   type: shell
   output_format: json
-  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I .specify/extensions/whetstone-core/scripts/whetstone.py
+  run: uv run --isolated --no-config --no-project --with jsonschema==4.26.0 --with pyyaml==6.0.2 python3 -I -X pycache_prefix=.review/pyc .specify/extensions/whetstone-core/scripts/whetstone.py
     validate shim-check.schema.json .review/current/shim-check.json

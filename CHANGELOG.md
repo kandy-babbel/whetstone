@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.5.0
+
+- **Review from a harness.** Whetstone can run from a small repository of your own,
+  with the repository under review cloned into it as `repo/`: for repositories you may
+  not add files to. Nothing of Whetstone enters that repository, not even an object in
+  its `.git`; its branches cannot reach Whetstone's own files. `setup` checks that
+  `repo/` is a plain local clone (no link, no worktree), records its branch and `HEAD`,
+  and the guard before every agent step checks both again. Agents read the clone under
+  `repo/` and report paths relative to it; the core maps a `repo/`-prefixed path back.
+  The canary also tries to write `repo/` and `repo/.git`. The in-repository layout is
+  unchanged. New core script `repo.py`.
+- **The change is recorded once.** `setup` builds the tree of the change in a
+  temporary index and a throwaway object store under `.review/` (the repository's
+  `.git` gains no object), and writes its diff to `.review/current/diff.patch`. The
+  review agents review that diff; their answer must name the recorded `HEAD` and list
+  every file of the change (`files_reviewed`, new in `findings.schema.json`), or it is
+  refused. The claim check verifies the tree it builds is the one `setup` recorded.
+- **Per-branch history.** `.review/previous/` holds only runs of the branch under
+  review; other branches' runs wait under `.review/archive/<branch>/`. The report
+  records `root`, `branch`, `head` and `tree`.
+- **Compiled Python refused.** Python runs a `.pyc` in `__pycache__` in place of the
+  script next to it, even under `-I`. Whetstone's own steps pass `-X pycache_prefix`,
+  the lockdown requires `PYTHONPYCACHEPREFIX` (outside the working directory and
+  `TMPDIR`), and the integrity check refuses compiled Python under `.claude/` and
+  `.specify/`, tracked or not.
+- **A change that touches `.claude/` or `.specify/` is refused** in the in-repository
+  layout, unless run with `--input allow_protected=true`: those directories hold what
+  Whetstone runs, and a branch could otherwise commit a replacement.
+- **`sandbox.autoAllowBashIfSandboxed: true` is required.** Claude Code 2.1.329
+  stopped allowing sandboxed commands by default; without the setting every command
+  of a `claude -p` agent is refused, which the canary reports. `permissions.allow`
+  must be empty.
+- Triage's evidence gatherer reads the repository under review through pinned git.
+
 ## 0.4.0
 
 - **Whetstone now only reads.** It no longer fixes findings, runs the repository's
