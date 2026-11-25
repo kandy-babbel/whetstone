@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- **`install.sh`.** One command installs Whetstone: `sh install.sh` in a repository,
+  `sh install.sh --harness <repository>` for a harness around a clone. It registers
+  the catalogs (Whetstone's and Spec Kit's own), installs the pinned bundle version,
+  adds the `.gitignore` lines, deletes compiled Python under the install, pins `uv`
+  in `.prototools` when it comes from proto, sets `base_ref` from `origin/HEAD`
+  (`--base-ref` overrides), and in a harness makes the commit and the clone. It is
+  safe to run again and commits nothing in a repository of yours. The README's
+  install section is built around it; the commands it runs stay listed under "By
+  hand".
+
 ## 0.5.0
 
 - **Review from a harness.** Whetstone can run from a small repository of your own,

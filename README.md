@@ -16,7 +16,7 @@ lockdown below hold: the agents that judge a change can only read it.
 
 It runs in one of two layouts:
 - **in a repository**: Whetstone is installed and committed in the repository it
-  reviews ([Install in a repository](#install-in-a-repository));
+  reviews ([Install](#install));
 - **from a harness**: Whetstone lives in a small repository of your own, and the
   repository under review is a local clone next to it. Nothing of Whetstone enters
   that repository, not even an object in its `.git`. For repositories you cannot add
@@ -87,19 +87,71 @@ The modules exchange JSON files under `.review/current/`. Each file has a JSON
 Schema in `whetstone-core`. Each module workflow also runs on its own, or from
 another workflow through a `workflow` step.
 
-## Install in a repository
+## Install
 
-**1. Check the requirements.**
+**Requirements.**
 
 - **Linux**, with Claude Code's sandbox working: it uses bubblewrap (`bwrap`,
   Debian/Ubuntu: `apt install bubblewrap`) and unprivileged user namespaces. The
   canary at the start of every run tells you if it does not.
-- Spec Kit 1.3.3 or later; Claude Code 2.1.329 or later with the `pr-review-toolkit`
-  plugin enabled.
-- `git`, `python3` and `uv`. If `uv` comes from proto, pin it in `.prototools`.
+- Spec Kit 1.3.3 or later (`uv tool install specify-cli --from
+  git+https://github.com/github/spec-kit.git`); Claude Code 2.1.329 or later with the
+  `pr-review-toolkit` plugin enabled.
+- `git`, `python3` and `uv`.
 - For triage, `TYPESAFE_API_KEY` (see [What leaves your machine](#what-leaves-your-machine)).
 
-**2. Register the catalogs and install the bundle:**
+**One command.** [`install.sh`](install.sh) does the whole install. Download it and
+read it first: it runs Spec Kit, git and the shell, nothing else, and it is safe to
+run again.
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/kandy-babbel/whetstone/main/install.sh
+```
+
+*In a repository you may add files to*, from its root:
+
+```bash
+sh install.sh
+git add -A && git commit -m "Install Whetstone"       # on the branch other branches start from
+```
+
+*For a repository you may not add files to*, such as a company repository, in a
+harness of your own (see [Review from a harness](#review-from-a-harness)):
+
+```bash
+sh install.sh --harness git@github.com:org/app.git    # makes ./whetstone-app, commits the install, clones the repository into repo/
+cd whetstone-app
+```
+
+The script registers the catalogs (Whetstone's and Spec Kit's own, so the official
+extensions stay installable), installs the pinned bundle version, ignores the working
+files, deletes compiled Python under the install, pins `uv` in `.prototools` when
+`uv` comes from proto, and sets `base_ref` to the branch `origin/HEAD` names
+(`--base-ref` overrides it). It commits nothing in a repository of yours. Then
+[lock down the agents](#lock-down-claude-code) and run.
+
+**What the install is.** Spec Kit installs from the catalogs without asking,
+including the `decision` step's Python code; adding them is a trust decision. The
+step catalog pins `decision` 0.9.0 by its hashes. The install creates two files you
+own and may edit; each explains its settings in comments:
+
+| File | Sets |
+|---|---|
+| `.specify/extensions/whetstone-core/whetstone-core-config.yml` | `base_ref`, the branch PRs merge into |
+| `.specify/extensions/whetstone-triage/whetstone-triage-config.yml` | what the triage evidence contains |
+
+**Why it is committed.** A run refuses to start unless `.claude/` and `.specify/`
+are exactly what `HEAD` records: they hold the skills, workflows and scripts the
+agents and Whetstone's own steps run from, so a stray file there, tracked or not,
+stops the run. It also refuses a change under review that touches those directories
+(`--input allow_protected=true` overrides that, for when you change Whetstone's own
+files on purpose). Your own uncommitted changes elsewhere are fine; they are the
+change under review. Whetstone also refuses compiled Python under `.specify/` and
+`.claude/`, tracked or not: Python would run it in place of the script next to it.
+With `PYTHONPYCACHEPREFIX` exported (next section) none is created.
+
+<details>
+<summary><b>By hand</b>, what the script does</summary>
 
 ```bash
 specify init --here --integration claude --script sh      # if not a Spec Kit project yet
@@ -108,37 +160,14 @@ specify bundle catalog add $C/bundles.json --id whetstone
 specify extension catalog add $C/extensions.json --name whetstone --install-allowed --priority 1
 specify workflow catalog add $C/workflows.json --name whetstone
 specify workflow step catalog add $C/steps.json --name whetstone
+G=https://raw.githubusercontent.com/github/spec-kit/main                 # Spec Kit's own catalogs back:
+specify extension catalog add $G/extensions/catalog.json --name default --install-allowed --priority 2
+specify workflow catalog add $G/workflows/catalog.json --name default    # a project catalog hides them
+specify workflow step catalog add $G/workflows/step-catalog.json --name default
 specify bundle install whetstone --version 0.5.0
 ```
 
-Adding the extension, workflow and step catalogs is a trust decision. Spec Kit
-installs from them without asking, including the `decision` step's Python code. The
-step catalog pins `decision` 0.9.0 by its hashes.
-
-Adding a project catalog of these kinds **hides Spec Kit's built-in ones** for this
-project. To keep installing official extensions, workflows and steps, add the
-defaults back:
-
-```bash
-G=https://raw.githubusercontent.com/github/spec-kit/main
-specify extension catalog add $G/extensions/catalog.json --name default --install-allowed --priority 2
-specify workflow catalog add $G/workflows/catalog.json --name default
-specify workflow step catalog add $G/workflows/step-catalog.json --name default
-```
-
-The community catalogs are discovery-only by default. `catalog add` would make them
-install-allowed, so add them to `.specify/*-catalogs.yml` by hand with
-`install_allowed: false` if you want them.
-
-**3. Configure.** Edit the two files the install created. Each one explains its
-settings in comments.
-
-| File | Sets |
-|---|---|
-| `.specify/extensions/whetstone-core/whetstone-core-config.yml` | `base_ref`, the branch PRs merge into |
-| `.specify/extensions/whetstone-triage/whetstone-triage-config.yml` | what the triage evidence contains |
-
-**4. Ignore Spec Kit's and Whetstone's working files** in `.gitignore`:
+Then add to `.gitignore` (and `repo/` in a harness):
 
 ```gitignore
 .review/
@@ -148,23 +177,13 @@ settings in comments.
 __pycache__/
 ```
 
-Then delete any `__pycache__` directory under `.specify/` (installing the `decision`
-step compiles its Python). Whetstone refuses compiled Python under `.specify/` and
-`.claude/`, tracked or not: Python would run it in place of the script next to it.
-With `PYTHONPYCACHEPREFIX` exported (next section) none is created again.
+Delete any `__pycache__` directory under `.specify/` (installing the `decision` step
+compiles its Python), set `base_ref` in the core config, pin `uv` in `.prototools`
+if it comes from proto, and commit. The community catalogs are discovery-only by
+default; `catalog add` would make them install-allowed, so add them to
+`.specify/*-catalogs.yml` by hand with `install_allowed: false` if you want them.
 
-**5. Commit everything the install created under `.specify/` and `.claude/`**, and
-`.gitignore`, to the branch every other branch starts from. A run refuses to start
-unless `.claude/` and `.specify/` are exactly what `HEAD` records: they hold the
-skills, workflows and scripts the agents and Whetstone's own steps run from, so a
-stray file there, tracked or not, stops the run. It also refuses a change under
-review that touches those directories (`--input allow_protected=true` overrides
-that, for when you change Whetstone's own files on purpose). Your own uncommitted
-changes elsewhere are fine; they are the change under review.
-
-**6. Lock down the agents** (next section), then **run:** see
-[bundle/README.md](bundle/README.md#run). Each run starts fresh; an earlier run's
-files move to `.review/previous/`.
+</details>
 
 ## Review from a harness
 
@@ -175,14 +194,9 @@ never sees Whetstone: no file in its working tree, nothing in its `.git`, no cha
 to its `.gitignore`. Its branches cannot change Whetstone's own files either, because
 those are not in that repository.
 
-```bash
-mkdir ~/whetstone-harness && cd ~/whetstone-harness && git init
-# steps 1 to 4 of "Install in a repository", here; set base_ref to the branch PRs
-# merge into, as the clone will name it (origin/main)
-printf 'repo/\n' >> .gitignore
-git add -A && git commit -m "whetstone harness"
-git clone <the repository> repo                     # a local clone, never a worktree
-```
+`sh install.sh --harness <repository> [dir]` makes one: the directory (default
+`whetstone-<name>`), the install, `repo/` ignored, one commit, and a plain local
+clone at `repo/` (never a worktree). A harness serves one repository.
 
 To review a branch:
 
@@ -205,8 +219,8 @@ back. Nothing is written into `repo/`: the tree of the change is built in a
 throwaway object store under `.review/`, and the canary tries to write `repo/` and
 `repo/.git` too.
 
-A harness serves one repository. Keep `.review/` and the run state out of any
-repository you push: the install's `.gitignore` lines already exclude them.
+Keep `.review/` and the run state out of any repository you push: the install's
+`.gitignore` lines already exclude them.
 
 ## Lock down Claude Code
 
@@ -362,6 +376,7 @@ see Spec Kit's authentication guide (`~/.specify/auth.json`).
 ## Layout
 
 ```
+install.sh                the installer, for a repository or a harness
 extensions/<id>/          one Spec Kit extension each (manifest, README, prompts, scripts)
 workflows/                the module workflows and whetstone
 bundle/                   bundle manifest and README
