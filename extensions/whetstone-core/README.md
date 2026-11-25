@@ -34,13 +34,13 @@ environment variable `WHETSTONE_RUN_ID` set to `{{ context.run_id }}`.
 
 | Command | Does |
 |---|---|
-| `setup` | refuses a missing lockdown (the agents' flags, `TMPDIR`, `PYTHONPYCACHEPREFIX`, `.claude/` and `.specify/` not equal to `HEAD` or holding compiled Python), an un-ignored `.review/` or `.specify/workflows/runs/`, triage without `TYPESAFE_API_KEY`, a `repo/` that is not a plain local clone, or (in a repository) a change that touches `.claude/` or `.specify/` without `WHETSTONE_ALLOW_PROTECTED`; moves an earlier run to `.review/previous/` (another branch's runs to `.review/archive/<branch>/`); records `root`, `branch`, `head`, the base commit (`merge-base <base_ref> HEAD`), the `tree` of the change, the run id, the change's diff (`diff.patch`) and files (`pr-files.txt`) and starts `.review/ledger.json` |
+| `setup` | refuses a missing lockdown (the agents' flags, `TMPDIR`, `PYTHONPYCACHEPREFIX`, `.claude/` and `.specify/` not equal to `HEAD` or holding compiled Python), an un-ignored `.review/` or `.specify/workflows/runs/`, triage without `TYPESAFE_API_KEY`, a `repo/` that is not a plain local clone, or (in a repository) a change that touches `.claude/` or `.specify/` without `WHETSTONE_ALLOW_PROTECTED`; moves an earlier run to `.review/previous/` (another branch's runs to `.review/archive/<branch>/`); records `root`, `branch`, `head`, the base commit (`merge-base <base_ref> HEAD`), the `tree` of the change, the run id, the change's diff (`diff.patch`) and files (`pr-files.txt`), and the repository's conventions at the base commit (every `CLAUDE.md`, the Markdown files under `.claude/rules/`, links followed inside the tree) under `conventions/`, listed in `conventions.txt`; starts `.review/ledger.json` |
 | `guard` | before every agent step: the flags, `TMPDIR`, `PYTHONPYCACHEPREFIX`, the integrity check and the repository (`repo/` unchanged, `HEAD` unchanged) again |
 | `fetch <file> --command C [--args A]` / `--prompt P` | after an agent step: the answer of the step that ran command `C` (with argument `A`), or whose prompt starts with `P`, taken from the run state into `.review/current/<file>` |
 | `canary-open`, `canary-check` | around the canary agent (workflow `whetstone-canary`): the paths are computed from the nonce (and, with `repo/`, include the clone and its `.git`); none may exist, and the agent's answer must be the script's output for that nonce |
 | `validate <schema> <file>` | checks one file against one schema |
 | `summarize` | validates findings (and triage, if present); requires the review's `head` to be the recorded one and `files_reviewed` to be the change's file list; maps `repo/`-prefixed paths back; counts Critical and Important findings not dismissed as `actionable` |
-| `report` | validates the shim check and the claim check (if present), records follow-ups, WRONG claims, UNSURE notes, unread files and unjudged claims in the ledger, writes `.review/report.json`, and says whether a person must look (`needs_human`, with the gate's `message`) |
+| `report` | validates the shim check and the claim check (if present), records follow-ups, WRONG claims, UNSURE notes, unread files and unjudged claims in the ledger, writes `.review/report.json` (with the conventions the review was given), and says whether a person must look (`needs_human`, with the gate's `message`) |
 | `finish` | records the gate's answer (`WHETSTONE_GATE`) in the ledger and the report |
 
 Every step that touches `.review/` checks that it belongs to the run that set it
@@ -75,6 +75,9 @@ layout). It runs git there with the lockdown's environment, checks the clone
 (`errors`: a directory, not a link; `repo/.git` a directory of its own; git's root
 and `HEAD` as recorded), builds the tree of the change in a temporary index and a
 throwaway object store under `.review/tmp/objects` (`change_tree`, `objects_env`),
+reads the repository's conventions at a commit (`conventions`: every `CLAUDE.md` and
+the Markdown files under `.claude/rules/`, with links followed inside the tree; a link
+that leaves the tree, loops or points at an absolute path is skipped with its reason),
 and maps a path an agent wrote with the `repo/` prefix back (`canon`).
 
 ## Configuration

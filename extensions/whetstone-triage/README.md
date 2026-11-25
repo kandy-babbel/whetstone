@@ -5,7 +5,8 @@ community `decision` workflow step (Jev backend), one call per finding.
 
 ## Contract
 
-- **Reads:** `.review/current/findings.json`.
+- **Reads:** `.review/current/findings.json`, `conventions.txt` and the files
+  under `conventions/`.
 - **Writes:** `.review/current/triage.json`
   (`whetstone-core/schemas/triage.schema.json`). For each finding it records:
   - `p_bikeshedding`, the model's probability that the finding is bikeshedding;
@@ -21,7 +22,9 @@ the basis is `taste`. A finding a rule or check requires is never dismissed.
 
 1. `scripts/gather.py` writes one evidence file per finding to
    `.review/current/triage-evidence/`. Each holds the finding, the code around
-   it, the CI check steps, and the repository's rule and tool-config files.
+   it, the CI check steps, the repository's conventions `setup` recorded
+   (`.review/current/conventions/`: every `CLAUDE.md` and `.claude/rules/` at the
+   base commit), and the rule and tool-config files named in the configuration.
 2. The workflow's fan-out sends each evidence file to the `decision` step, four
    at a time.
 3. `scripts/collect.py` writes `triage.json` from the results and the item list in
@@ -32,8 +35,8 @@ the basis is `taste`. A finding a rule or check requires is never dismissed.
 ## Data leaving the machine
 
 Each evidence file is sent to the decision backend (api.typesafe.ai for Jev).
-That includes code excerpts and every file named in the configuration. Only files
-tracked by git are read. A finding's path comes from the reviewer, so an
+That includes code excerpts, the recorded conventions and every file named in the
+configuration. Only files tracked by git are read. A finding's path comes from the reviewer, so an
 untracked, ignored or outside path is replaced by a note and never sent. Switch
 triage off (`--input triage=false` on `whetstone`) where that is not
 acceptable.
@@ -45,7 +48,7 @@ acceptable.
 
 | Key | Meaning |
 |---|---|
-| `rule_files` | files that state the repository's rules |
+| `rule_files` | files that state the repository's rules, besides the recorded conventions, which are always included |
 | `config_files` | formatter, linter and task-runner configs |
 | `ci_workflow` | CI workflow file whose check steps are included (`""` for none) |
 | `ci_run_prefixes` | also include `run:` lines starting with these commands |

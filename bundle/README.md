@@ -8,10 +8,11 @@ for where the name comes from. One run:
 
 1. **setup**: records the repository (the working directory, or the clone under
    `repo/`), its branch and `HEAD`, the base commit, the tree of the change, its diff
-   and its files.
+   and its files, and copies the repository's conventions (`CLAUDE.md`,
+   `.claude/rules/`) from the base commit to `.review/current/conventions/`.
 2. **canary**: an agent tries to write the repository; the run stops if it can.
-3. **review**: pr-review-toolkit reviews the recorded diff; findings are written in
-   cc-review's Finding format.
+3. **review**: pr-review-toolkit reviews the recorded diff against those
+   conventions; findings are written in cc-review's Finding format.
 4. **triage** (switchable): a decision model decides whether each blocking
    finding is bikeshedding. A finding is dismissed only when P(bikeshedding)
    reaches the threshold and the model's basis is "taste".

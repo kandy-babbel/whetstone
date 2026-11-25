@@ -8,15 +8,19 @@ answer: the findings as one JSON document, on its standard output. The workflow'
 
 pr-review-toolkit chooses which of its agents to run from the diff. Whetstone
 asks for every applicable review except code-simplifier, on the diff `setup`
-recorded in `.review/current/diff.patch`, not on one the agent computes. The
-repository is read-only for the agent. In the harness layout it is the clone under
-`repo/`; the agent reports paths relative to it.
+recorded in `.review/current/diff.patch`, not on one the agent computes, and
+against the repository's conventions `setup` copied to
+`.review/current/conventions/` (its `CLAUDE.md` files and `.claude/rules/` at the
+base commit; the agents run with `CLAUDE.md` excluded, so the branch's own version
+is never their instructions). The repository is read-only for the agent. In the
+harness layout it is the clone under `repo/`; the agent reports paths relative to it.
 
 ## Contract
 
-- **Reads:** `.review/base`, `.review/round`, `.review/current/diff.patch` and
-  `pr-files.txt`, earlier runs' ledgers under `.review/previous/` (runs of this
-  branch, so it does not report dismissed findings again).
+- **Reads:** `.review/base`, `.review/round`, `.review/current/diff.patch`,
+  `pr-files.txt`, `conventions.txt` and the files under `conventions/`, earlier
+  runs' ledgers under `.review/previous/` (runs of this branch, so it does not
+  report dismissed findings again).
 - **Writes:** `.review/current/findings.json`
   (`whetstone-core/schemas/findings.schema.json`). `head` must be the `HEAD`
   `setup` recorded and `files_reviewed` the change's whole file list, or the core

@@ -2,7 +2,7 @@ schema_version: '1.0'
 workflow:
   id: whetstone-claim-judge
   name: 'Whetstone: claim check, one judge'
-  version: 0.5.0
+  version: 0.6.0
   author: Kirill Andriychuk
   description: One claim-check judge, for one claim; called per claim by whetstone-claim-check so that a judge's failure leaves its claim unjudged instead of stopping the run
 requires:

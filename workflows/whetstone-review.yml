@@ -2,7 +2,7 @@ schema_version: '1.0'
 workflow:
   id: whetstone-review
   name: 'Whetstone: review'
-  version: 0.5.0
+  version: 0.6.0
   author: Kirill Andriychuk
   description: Review the change with pr-review-toolkit and write .review/current/findings.json (cc-review Findings). Reads the repository only.
 requires:
@@ -23,8 +23,11 @@ steps:
     `repo/` if it exists in your working directory (then run git as `git -C repo ...` and read its files under
     `repo/`), otherwise your working directory. The change under review is the diff in .review/current/diff.patch;
     its files are listed in .review/current/pr-files.txt. Review exactly that change, in the files as they are now;
-    do not compute the diff yourself. The repository is read-only for you. When every agent has finished, reply
-    with the findings as reviewer.md specifies: one JSON document as your final answer, nothing else.
+    do not compute the diff yourself. The repository''s own conventions (its CLAUDE.md files and .claude/rules, as
+    they are on the base commit) are copied under .review/current/conventions/ and listed in
+    .review/current/conventions.txt: read them, tell every review agent you launch where they are, and check the
+    change against them. The repository is read-only for you. When every agent has finished, reply with the
+    findings as reviewer.md specifies: one JSON document as your final answer, nothing else.
 
     '
 - id: review_fetch

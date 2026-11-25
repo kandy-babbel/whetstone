@@ -5,8 +5,9 @@ Output (stdout, JSON, also written to .review/current/triage-items.json):
   {"items": [{"id": "FINDING-1", "evidence": ".review/current/triage-evidence/FINDING-1.json"}]}
 Only files tracked by git are read: the reviewer writes each finding's path, and the
 evidence leaves the machine, so an untracked, ignored or outside path is never excerpted.
-The evidence holds the finding, the code around it at HEAD, the CI check steps, and the
-repository's rules and tool configs named in whetstone-triage-config.yml
+The evidence holds the finding, the code around it at HEAD, the CI check steps, the repository's
+conventions as `setup` recorded them from the base commit (.review/current/conventions/: every
+CLAUDE.md and .claude/rules/), and the rules and tool configs named in whetstone-triage-config.yml
 (scaffolded by Spec Kit next to this extension; owned by the repository). Paths stay inside the
 project, as the decision step requires. The repository is the working directory, or the clone
 under repo/ when `setup` recorded that layout in .review/root (the harness layout).
@@ -55,7 +56,13 @@ prefixes = "|".join(re.escape(p) for p in cfg["ci_run_prefixes"])
 ci = "\n".join(l.strip() for l in read(cfg["ci_workflow"]).splitlines()
                if re.match(r"\s+- name: .*(check|test|lint|format)", l, re.I)
                or (prefixes and re.match(rf"\s+run: ({prefixes})\b", l))) if cfg["ci_workflow"] else "(no CI workflow configured)"
-rules = {p: read(p) for p in cfg["rule_files"]}
+rules, sources = {}, set()
+for line in ((CUR / "conventions.txt").read_text().splitlines() if (CUR / "conventions.txt").exists() else []):
+    if line and not line.startswith("# "):
+        name, _, source = line.partition(" -> ")
+        rules[name] = (CUR / "conventions" / name).read_text(errors="replace")
+        sources.add(source or name)
+rules.update({p: read(p) for p in cfg["rule_files"] if p not in sources})  # a file setup already copied is not sent twice
 configs = {p: read(p) for p in cfg["config_files"]}
 items = []
 for f in blocking:

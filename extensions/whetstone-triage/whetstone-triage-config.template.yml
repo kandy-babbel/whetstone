@@ -3,7 +3,9 @@
 # when the extension is installed and never overwrites that copy. Edit and commit the copy.
 # Everything listed here is sent to the decision step's backend with each finding.
 
-# Files that state the repository's rules. A missing file is noted as missing.
+# Files that state the repository's rules, besides the conventions `setup` records on
+# its own (every CLAUDE.md and the files under .claude/rules/, as they are on the base
+# commit), which are always included. A missing file is noted as missing.
 rule_files:
   - AGENTS.md
 # Tool configuration files (formatter, linter, task runner).

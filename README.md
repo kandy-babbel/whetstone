@@ -41,10 +41,13 @@ One run, on the change from the merge-base with `base_ref` to the working tree
 1. **setup**: checks the lockdown (next sections), that `.claude/` and `.specify/`
    are exactly what `HEAD` records, and where the repository is; records its branch,
    `HEAD`, the base commit, the tree of the change, its diff
-   (`.review/current/diff.patch`) and its files (`pr-files.txt`).
+   (`.review/current/diff.patch`) and its files (`pr-files.txt`); copies the
+   repository's conventions, every `CLAUDE.md` and the files under `.claude/rules/`
+   as they are on the base commit, to `.review/current/conventions/`.
 2. **canary**: a short agent run that tries to write the repository and the other
    protected paths. The run stops if any write succeeds.
-3. **review**: pr-review-toolkit's agents review that diff.
+3. **review**: pr-review-toolkit's agents review that diff against the repository's
+   conventions.
 4. **triage** (switchable): a decision model dismisses bikeshedding findings.
 5. **shim check** (switchable): for each remaining Critical or Important finding, an
    agent names the defect class, finds its other occurrences, and decides between a
@@ -65,8 +68,9 @@ keeps the answer in the run state, and Whetstone's own steps take it from there.
   Code and read the repository as Claude Code does.
 - **Triage (on by default):** for each Critical or Important finding, an evidence file
   goes to the decision step's Jev backend at api.typesafe.ai. The file holds the finding,
-  the code around it, and the rule, config and CI files named in
-  `whetstone-triage-config.yml`. Only files tracked by git are included. Triage needs
+  the code around it, the repository's conventions `setup` recorded, and the rule,
+  config and CI files named in `whetstone-triage-config.yml`. Only files tracked by
+  git are included. Triage needs
   `TYPESAFE_API_KEY`; without it the run stops before the review starts. Run with
   `--input triage=false` to keep code from going to api.typesafe.ai.
 
@@ -164,7 +168,7 @@ G=https://raw.githubusercontent.com/github/spec-kit/main                 # Spec 
 specify extension catalog add $G/extensions/catalog.json --name default --install-allowed --priority 2
 specify workflow catalog add $G/workflows/catalog.json --name default    # a project catalog hides them
 specify workflow step catalog add $G/workflows/step-catalog.json --name default
-specify bundle install whetstone --version 0.5.0
+specify bundle install whetstone --version 0.6.0
 ```
 
 Then add to `.gitignore` (and `repo/` in a harness):
@@ -251,7 +255,7 @@ requires each of them:
 | `permissions.deny: ["Edit(./**)"]` | The whole working directory. Inside the sandbox it is mounted read-only, so neither the agent's file tools nor any command it runs can write it; `.git`, `.specify`, `.claude`, `.review` and the clone under `repo/` included. It must be this exact pattern: `Edit(**)` does not make the sandbox mount anything read-only. |
 | `permissions.allow` | Empty. |
 | `disableAllHooks: true` | A hook in the repository's `.claude/settings.json` would run outside the sandbox. |
-| `claudeMdExcludes` | A `CLAUDE.md` in the repository is not loaded as instructions. |
+| `claudeMdExcludes` | A `CLAUDE.md` in the repository is not loaded as instructions: the change under review could have edited it. The repository's conventions reach the agents another way, see [The repository's conventions](#the-repositorys-conventions). |
 | `--strict-mcp-config` | A `.mcp.json` in the repository does not start a server outside the sandbox. |
 | `--output-format json` | The agent's answer comes back as structured output, with its error state. |
 | `--permission-mode acceptEdits` | Not `bypassPermissions` or `auto`, which Whetstone refuses. |
@@ -268,6 +272,28 @@ unchanged, and nothing is written to your settings files. A `.claude/settings.js
 in the repository cannot weaken these flags: the inline `--settings` wins. In the
 harness layout the clone's `.claude/` and `CLAUDE.md` are not loaded at all: Claude
 Code reads them from its working directory, which is the harness.
+
+### The repository's conventions
+
+A repository's `CLAUDE.md` and `.claude/rules/` state the rules its code follows,
+and a review should check the change against them. They are also text an agent
+would obey, and the branch under review can edit them. Whetstone separates the two:
+
+- The agents are launched with `CLAUDE.md` excluded, so the branch's version of it
+  never becomes the reviewers' instructions.
+- `setup` reads every `CLAUDE.md` in the tree and the Markdown files under
+  `.claude/rules/` **from the base commit**, the merge-base with `base_ref`, which is
+  content already merged. It follows links inside the tree (a `CLAUDE.md` that links
+  to `AGENTS.md`, a `.claude/rules` that links to another directory) and refuses a
+  link that leaves the repository. The copies go to `.review/current/conventions/`,
+  listed in `conventions.txt`; `report.json` records the list.
+- The reviewer reads them as the repository's rules for its code and checks the
+  change against them; a finding a rule requires is not bikeshedding, and triage sees
+  the same files. A change to one of these files on the branch is in the diff and is
+  reviewed like any other file.
+
+Nothing to configure: this works in both layouts, for any repository that has such
+files, and needs no copy of them in the harness.
 
 **What Whetstone checks** (it refuses to run otherwise):
 - `setup`, and a guard step before every agent step, check the variable: exactly one
@@ -352,14 +378,14 @@ Not covered:
 2. Build:
    ```bash
    python3 tools/build.py \
-     --assets-url https://github.com/kandy-babbel/whetstone/releases/download/v0.5.0 \
+     --assets-url https://github.com/kandy-babbel/whetstone/releases/download/v0.6.0 \
      --catalog-url https://raw.githubusercontent.com/kandy-babbel/whetstone/main/catalog
    ```
    This empties `dist/`, then writes the extension zips (each with `LICENSE`), the
    workflow files and the bundle zip there. It also rewrites the catalogs in
    `catalog/` with each file's sha256. The version a catalog entry replaces moves to
    the entry's `releases`, so earlier versions stay installable with `--version`.
-3. Create release `v0.5.0` with every file in `dist/` as an asset.
+3. Create release `v0.6.0` with every file in `dist/` as an asset.
    Never change a release's assets after publishing. Spec Kit checks each download
    against the catalog's sha256 and caches catalogs for an hour, so a changed file
    fails to install. Fix by releasing a new version.

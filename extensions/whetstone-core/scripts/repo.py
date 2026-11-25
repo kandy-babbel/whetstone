@@ -12,7 +12,7 @@ Every git call here runs in the repository (`git -C repo`) with the lockdown's g
 """
 from __future__ import annotations
 
-import shutil, subprocess
+import posixpath, shutil, subprocess
 from pathlib import Path
 
 import lockdown
@@ -22,6 +22,10 @@ R = Path(".review")
 OBJECTS = R / "tmp" / "objects"
 _mount = Path(MOUNT)
 ROOT = _mount if (_mount.is_dir() or _mount.is_symlink()) else Path(".")
+CONVENTIONS_FILE = "CLAUDE.md"  # what Claude Code loads as instructions: every CLAUDE.md in the tree...
+CONVENTIONS_DIR = ".claude/rules"  # ...and the Markdown files under the root's .claude/rules/
+CONVENTION_MAX = 1_000_000  # bytes; a rule file larger than this is not a rule file
+LINK_HOPS = 8  # how many symbolic links are followed inside the tree before a path counts as a loop
 
 
 def harness() -> bool:
@@ -119,3 +123,73 @@ def canon(path: str, has) -> str:
         if not has(p) and has(inner):
             return inner
     return p
+
+
+def tree_entries(commit: str) -> dict[str, tuple[str, str, str]]:
+    """Every entry of the commit's tree, directories and links included: path -> (mode, type, sha)."""
+    out = subprocess.run(git_cmd("ls-tree", "-r", "-t", "-z", commit), check=True, capture_output=True,
+                         env=lockdown.git_env()).stdout
+    entries = {}
+    for rec in out.decode("utf-8", "surrogateescape").split("\0"):
+        if rec:
+            meta, path = rec.split("\t", 1)
+            mode, kind, sha = meta.split(" ")
+            entries[path] = (mode, kind, sha)
+    return entries
+
+
+def blob(sha: str) -> bytes:
+    return subprocess.run(git_cmd("cat-file", "blob", sha), check=True, capture_output=True, env=lockdown.git_env()).stdout
+
+
+def _resolve(entries: dict, path: str) -> tuple[tuple[str, str, str] | None, str, str]:
+    """The entry a path names once symbolic links inside the tree are followed: (entry, path, reason). The entry is
+    None, with the reason, when the path is missing, a link leaves the tree, loops, or is absolute."""
+    for _ in range(LINK_HOPS + 1):
+        e = entries.get(path)
+        if e is None:
+            return None, path, "missing"
+        if e[0] != "120000":
+            return e, path, ""
+        target = blob(e[2]).decode("utf-8", "replace").strip()
+        if target.startswith("/"):
+            return None, path, f"link to an absolute path ({target})"
+        path = posixpath.normpath(posixpath.join(posixpath.dirname(path), target))
+        if path == ".." or path.startswith("../"):
+            return None, path, "link leaves the repository"
+    return None, path, "link loop"
+
+
+def conventions(commit: str) -> tuple[list[tuple[str, str, bytes]], list[tuple[str, str]]]:
+    """The repository's conventions at a commit: the files Claude Code would load as instructions, read as the
+    repository's rules for its code. Every CLAUDE.md in the tree and every Markdown file under .claude/rules/, with
+    links followed inside the tree (a CLAUDE.md that links to AGENTS.md, a .claude/rules that links to another
+    directory). Returns (files, skipped): files as (name, source, content), where name is the path Claude Code
+    would load and source the path of the content in the tree; skipped as (name, reason)."""
+    entries = tree_entries(commit)
+    wanted = [(p, p) for p in sorted(entries) if posixpath.basename(p) == CONVENTIONS_FILE]
+    rules, rules_path, reason = _resolve(entries, CONVENTIONS_DIR)
+    if rules is None and reason != "missing":
+        skipped_dir = [(CONVENTIONS_DIR, reason)]
+    elif rules is not None and rules[1] != "tree":
+        skipped_dir = [(CONVENTIONS_DIR, "not a directory")]
+    else:
+        skipped_dir = []
+        if rules is not None:
+            prefix = rules_path + "/"
+            wanted += [(CONVENTIONS_DIR + "/" + p[len(prefix):], p) for p in sorted(entries)
+                       if p.startswith(prefix) and p.endswith(".md") and entries[p][1] == "blob"]
+    files, skipped = [], skipped_dir
+    for name, path in wanted:
+        e, source, reason = _resolve(entries, path)
+        if e is None:
+            skipped.append((name, reason))
+        elif e[1] != "blob":
+            skipped.append((name, "not a file"))
+        else:
+            data = blob(e[2])
+            if len(data) > CONVENTION_MAX:
+                skipped.append((name, f"larger than {CONVENTION_MAX} bytes"))
+            else:
+                files.append((name, source, data))
+    return files, skipped

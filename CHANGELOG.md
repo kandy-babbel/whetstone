@@ -1,7 +1,17 @@
 # Changelog
 
-## Unreleased
+## 0.6.0
 
+- **The repository's conventions reach the review.** The agents run with `CLAUDE.md`
+  excluded, so the branch under review cannot instruct its own reviewers; until now
+  that also kept the repository's rules from them. `setup` now copies every
+  `CLAUDE.md` in the tree and the Markdown files under `.claude/rules/`, as they are
+  on the base commit, to `.review/current/conventions/` (listed in
+  `conventions.txt`, recorded in `report.json`), following links inside the tree and
+  skipping a link that leaves it. The reviewer reads them as the repository's rules
+  and checks the change against them; triage evidence includes them. Nothing to
+  configure, in either layout. New `repo.py` functions `conventions`, `tree_entries`
+  and `blob`.
 - **`install.sh`.** One command installs Whetstone: `sh install.sh` in a repository,
   `sh install.sh --harness <repository>` for a harness around a clone. It registers
   the catalogs (Whetstone's and Spec Kit's own), installs the pinned bundle version,

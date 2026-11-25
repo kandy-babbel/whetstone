@@ -14,7 +14,8 @@ Repository settings: whetstone-core-config.yml next to this extension (base_ref)
 
   setup                      check the lockdown, TMPDIR and the integrity of .claude/ and .specify/; archive an earlier
                              run; record the repository, its branch, HEAD, the base commit, the tree of the change,
-                             its diff and its files; start the ledger
+                             its diff and its files, and the repository's conventions at the base commit; start the
+                             ledger
   guard                      before every agent step: the lockdown, the integrity check and the repository again
   fetch <file> --command C [--args A] | --prompt P
                              after an agent step: its answer, taken from the run state into .review/current/<file>
@@ -221,8 +222,32 @@ def setup():
         fail(f"git diff failed: {d.stderr.decode(errors='replace').strip()[:300]}")
     (CUR / "diff.patch").write_bytes(d.stdout)
     (CUR / "pr-files.txt").write_text("".join(f + "\n" for f in files))
+    conventions, skipped = record_conventions(base)
     out({"valid": True, "root": str(repo.ROOT), "branch": branch, "head": head, "base": base, "base_ref": base_ref,
-         "tree": tree, "changed_files": len(files)})
+         "tree": tree, "changed_files": len(files), "conventions": conventions, "conventions_skipped": skipped})
+
+
+def record_conventions(base):
+    """The repository's conventions (every CLAUDE.md, the files under .claude/rules/) as they are on the base commit,
+    copied to .review/current/conventions/ and listed in conventions.txt. The agents are launched with CLAUDE.md
+    excluded, so the change under review cannot instruct its own reviewers; the conventions reach them from a
+    commit already merged instead, as the repository's rules to check the change against. An edit to one of these
+    files on the branch is part of the change, in the diff, and is reviewed like any other file."""
+    conv = CUR / "conventions"
+    conv.mkdir()
+    try:
+        files, skipped = repo.conventions(base)
+    except subprocess.CalledProcessError as e:
+        fail(f"git cannot read the base commit's tree ({(e.stderr or b'').decode(errors='replace').strip()[:300]})")
+    lines = []
+    for name, source, data in files:
+        target = conv / name  # a path git listed, or one normalised inside the tree: never above conv/
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+        lines.append(name if source == name else f"{name} -> {source}")
+    lines += [f"# skipped {name}: {reason}" for name, reason in skipped]
+    (CUR / "conventions.txt").write_text("".join(l + "\n" for l in lines))
+    return [l for l in lines if not l.startswith("# ")], [f"{n}: {r}" for n, r in skipped]
 
 
 def _find(argv):
@@ -382,9 +407,11 @@ def report():
         if claims.get("warning"):
             record(l, "warnings", {"round": n, "warning": claims["warning"]})
     save_ledger(l)
+    conv = (CUR / "conventions.txt").read_text().splitlines() if (CUR / "conventions.txt").exists() else []
     doc = {"round": n, "root": recorded("root"), "branch": recorded("branch"), "base": recorded("base"),
            "head": recorded("head"), "tree": recorded("tree"),
-           "changed_files": sorted(pr_files), "findings": summary, "shim_check": list(shim.values()) if shim else None,
+           "changed_files": sorted(pr_files), "conventions": [c for c in conv if c and not c.startswith("# ")],
+           "findings": summary, "shim_check": list(shim.values()) if shim else None,
            "claim_check": {k: claims[k] for k in ("tree", "counts", "not_judged", "unread", "unjudged")} if claims else None,
            **{k: l[k] for k in LEDGER_KEYS}}
     (R / "report.json").write_text(json.dumps(doc, indent=2) + "\n")
