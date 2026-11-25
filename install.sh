@@ -26,6 +26,25 @@ DEFAULTS=1
 
 say() { printf '%s\n' "$*"; }
 die() { printf 'install.sh: %s\n' "$*" >&2; exit 1; }
+usage() {
+    cat <<'USAGE'
+Installs Whetstone into a repository, or into a harness around a clone of one.
+
+  sh install.sh                                  # here, in a repository you may commit to
+  sh install.sh --harness <repository> [dir]     # a harness of your own around a clone
+
+Options:
+  --version V     the Whetstone bundle version to install (default: the one below)
+  --base-ref R    the branch pull requests merge into (default: what origin/HEAD
+                  names, else origin/main)
+  --catalog URL   where the catalogs are (default: this release on GitHub)
+  --no-defaults   do not add Spec Kit's own catalogs back
+
+It runs only Spec Kit, git and the shell. It is safe to run again. It commits
+nothing in a repository of yours; in a harness it makes the one commit that holds
+the install. Read it before you run it.
+USAGE
+}
 
 while [ $# -gt 0 ]; do
     case $1 in
@@ -35,7 +54,7 @@ while [ $# -gt 0 ]; do
         --base-ref) [ $# -ge 2 ] || die "--base-ref needs a value"; BASE_REF=$2; shift 2 ;;
         --catalog) [ $# -ge 2 ] || die "--catalog needs a URL"; CATALOG=$2; shift 2 ;;
         --no-defaults) DEFAULTS=0; shift ;;
-        -h|--help) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help) usage; exit 0 ;;
         *) die "unknown argument: $1" ;;
     esac
 done
