@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.7.1
+
+- **`install.sh` upgrades.** Run again over an older Whetstone, it failed: adding a
+  catalog that was already registered stopped it, and `bundle install` refuses a
+  bundle that is installed. It now points each catalog it registers at `--catalog`,
+  replacing one of the same name whose URL differs and leaving one that matches, and
+  runs `specify bundle update` when another version is installed, failing if the
+  catalog does not give the version asked for. An install that was there before
+  keeps its `base_ref`; `--base-ref` still overrides it. The README says how to
+  upgrade. Nothing else changed.
+
 ## 0.7.0
 
 - **Readers and judges can write their drafts.** Each one drafts its answer in a file

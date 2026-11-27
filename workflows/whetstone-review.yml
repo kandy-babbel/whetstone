@@ -2,7 +2,7 @@ schema_version: '1.0'
 workflow:
   id: whetstone-review
   name: 'Whetstone: review'
-  version: 0.7.0
+  version: 0.7.1
   author: Kirill Andriychuk
   description: Review the change with pr-review-toolkit and write .review/current/findings.json (cc-review Findings). Reads the repository only.
 requires:

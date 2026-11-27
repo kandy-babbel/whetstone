@@ -6,17 +6,19 @@
 #
 # Options:
 #   --version V     the Whetstone bundle version to install (default: the one below)
-#   --base-ref R    the branch pull requests merge into (default: what origin/HEAD
-#                   names, else origin/main)
+#   --base-ref R    the branch pull requests merge into (default: the one already
+#                   configured, else what origin/HEAD names, else origin/main)
 #   --catalog URL   where the catalogs are (default: this release on GitHub)
 #   --no-defaults   do not add Spec Kit's own catalogs back
 #
-# It runs only Spec Kit, git and the shell. It is safe to run again. It commits
-# nothing in a repository of yours; in a harness it makes the one commit that holds
-# the install. Read it before you run it.
+# It runs only Spec Kit, git and the shell. It is safe to run again, and running it
+# again over an older Whetstone upgrades it: the catalogs are pointed at --catalog and
+# the bundle is updated in place, keeping your config. It commits nothing in a
+# repository of yours; in a harness it makes the one commit that holds the install.
+# Read it before you run it.
 set -eu
 
-VERSION=0.7.0
+VERSION=0.7.1
 CATALOG=https://raw.githubusercontent.com/kandy-babbel/whetstone/main/catalog
 SPECKIT=https://raw.githubusercontent.com/github/spec-kit/main
 HARNESS=
@@ -35,14 +37,16 @@ Installs Whetstone into a repository, or into a harness around a clone of one.
 
 Options:
   --version V     the Whetstone bundle version to install (default: the one below)
-  --base-ref R    the branch pull requests merge into (default: what origin/HEAD
-                  names, else origin/main)
+  --base-ref R    the branch pull requests merge into (default: the one already
+                  configured, else what origin/HEAD names, else origin/main)
   --catalog URL   where the catalogs are (default: this release on GitHub)
   --no-defaults   do not add Spec Kit's own catalogs back
 
-It runs only Spec Kit, git and the shell. It is safe to run again. It commits
-nothing in a repository of yours; in a harness it makes the one commit that holds
-the install. Read it before you run it.
+It runs only Spec Kit, git and the shell. It is safe to run again, and running it
+again over an older Whetstone upgrades it: the catalogs are pointed at --catalog and
+the bundle is updated in place, keeping your config. It commits nothing in a
+repository of yours; in a harness it makes the one commit that holds the install.
+Read it before you run it.
 USAGE
 }
 
@@ -103,22 +107,75 @@ if [ ! -d .specify ]; then
 fi
 
 # 4. Catalogs and the bundle.
-specify bundle catalog add "$CATALOG/bundles.json" --id whetstone
-specify extension catalog add "$CATALOG/extensions.json" --name whetstone --install-allowed --priority 1
-specify workflow catalog add "$CATALOG/workflows.json" --name whetstone
-specify workflow step catalog add "$CATALOG/steps.json" --name whetstone
-if [ "$DEFAULTS" = 1 ]; then
-    specify extension catalog add "$SPECKIT/extensions/catalog.json" --name default --install-allowed --priority 2
-    specify workflow catalog add "$SPECKIT/workflows/catalog.json" --name default
-    specify workflow step catalog add "$SPECKIT/workflows/step-catalog.json" --name default
-fi
-if [ -f .specify/bundle-records.json ] && python3 -I - "$VERSION" <<'EOF' 2>/dev/null
-import json, sys
-recs = json.load(open(".specify/bundle-records.json")).get("bundles", [])
-sys.exit(0 if any(b.get("bundle_id") == "whetstone" and b.get("version") == sys.argv[1] for b in recs) else 1)
+# A catalog already registered under our name is replaced when its URL differs,
+# and left alone when it is the same. Bundle and extension catalogs are removed by
+# name, workflow and step catalogs by their index in the list.
+catalog_url() {   # file key name -> "index url" of that entry, or nothing
+    [ -f "$1" ] || return 0
+    python3 -I - "$@" <<'EOF'
+import sys
+path, key, name = sys.argv[1:4]
+entries, cur = [], None
+for line in open(path, encoding="utf-8"):
+    s = line.rstrip("\n")
+    if s.startswith("- "):
+        cur = {}
+        entries.append(cur)
+        s = "  " + s[2:]
+    if cur is not None and s.startswith("  ") and not s.startswith("   ") and ":" in s:
+        k, v = s.strip().split(":", 1)
+        cur[k.strip()] = v.strip().strip("'\"")
+for i, e in enumerate(entries):
+    if e.get(key) == name:
+        print(i, e.get("url", ""))
+        break
 EOF
-then
+}
+set_catalog() {   # kind file key name url -- add arguments
+    kind=$1 file=$2 key=$3 name=$4 url=$5; shift 6
+    found=$(catalog_url "$file" "$key" "$name")
+    if [ -n "$found" ]; then
+        [ "${found#* }" = "$url" ] && return 0
+        case $kind in
+            bundle|extension) specify $kind catalog remove "$name" ;;
+            workflow) specify workflow catalog remove "${found%% *}" ;;
+            step) specify workflow step catalog remove "${found%% *}" ;;
+        esac
+        say "replaced the $kind catalog '$name' (was ${found#* })"
+    fi
+    case $kind in
+        step) specify workflow step catalog add "$url" "$@" ;;
+        *) specify $kind catalog add "$url" "$@" ;;
+    esac
+}
+set_catalog bundle .specify/bundle-catalogs.yml id whetstone "$CATALOG/bundles.json" -- --id whetstone
+set_catalog extension .specify/extension-catalogs.yml name whetstone "$CATALOG/extensions.json" -- --name whetstone --install-allowed --priority 1
+set_catalog workflow .specify/workflow-catalogs.yml name whetstone "$CATALOG/workflows.json" -- --name whetstone
+set_catalog step .specify/step-catalogs.yml name whetstone "$CATALOG/steps.json" -- --name whetstone
+if [ "$DEFAULTS" = 1 ]; then
+    set_catalog extension .specify/extension-catalogs.yml name default "$SPECKIT/extensions/catalog.json" -- --name default --install-allowed --priority 2
+    set_catalog workflow .specify/workflow-catalogs.yml name default "$SPECKIT/workflows/catalog.json" -- --name default
+    set_catalog step .specify/step-catalogs.yml name default "$SPECKIT/workflows/step-catalog.json" -- --name default
+fi
+
+installed() {
+    [ -f .specify/bundle-records.json ] || return 0
+    python3 -I - <<'EOF'
+import json
+recs = json.load(open(".specify/bundle-records.json")).get("bundles", [])
+print(next((b.get("version", "") for b in recs if b.get("bundle_id") == "whetstone"), ""))
+EOF
+}
+CONFIG=.specify/extensions/whetstone-core/whetstone-core-config.yml
+OLD=$(installed)
+if [ "$OLD" = "$VERSION" ]; then
     say "Whetstone $VERSION is already installed here."
+elif [ -n "$OLD" ]; then
+    # bundle install refuses an installed bundle; update keeps the config files.
+    say "Upgrading Whetstone $OLD to $VERSION."
+    specify bundle update whetstone
+    NOW=$(installed)
+    [ "$NOW" = "$VERSION" ] || die "the catalog at $CATALOG gave Whetstone $NOW, not $VERSION; point --catalog at the $VERSION release"
 else
     specify bundle install whetstone --version "$VERSION"
 fi
@@ -145,8 +202,9 @@ else
 fi
 
 # 7. base_ref.
-CONFIG=.specify/extensions/whetstone-core/whetstone-core-config.yml
 [ -f "$CONFIG" ] || die "$CONFIG is missing after the install"
+# An install that was here before keeps its base_ref; a new one gets origin's default.
+[ -n "$BASE_REF" ] || [ -z "$OLD" ] || BASE_REF=$(sed -n 's/^base_ref: *//p' "$CONFIG" | head -1)
 if [ -z "$BASE_REF" ]; then
     BASE_REF=$(git -C "$REPO" symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null || true)
     [ -n "$BASE_REF" ] || BASE_REF=origin/main

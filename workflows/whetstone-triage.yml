@@ -2,7 +2,7 @@ schema_version: '1.0'
 workflow:
   id: whetstone-triage
   name: 'Whetstone: triage'
-  version: 0.7.0
+  version: 0.7.1
   author: Kirill Andriychuk
   description: Decide with the decision step whether each blocking finding is bikeshedding; write .review/current/triage.json
 requires:

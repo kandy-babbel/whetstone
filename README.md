@@ -134,6 +134,16 @@ files, deletes compiled Python under the install, pins `uv` in `.prototools` whe
 (`--base-ref` overrides it). It commits nothing in a repository of yours. Then
 [lock down the agents](#lock-down-claude-code) and run.
 
+**Upgrading.** Download the new `install.sh` and run it the way you first did, in
+the same place (in a harness, `sh install.sh --harness <repository>` from the
+directory that holds the harness). It points the catalogs it registered at the new
+ones, replacing a catalog of the same name whose URL differs, and updates the bundle
+in place with `specify bundle update`. Your two config files and the `base_ref` in
+them are kept; `--base-ref` still overrides it. Then read the
+[changelog](CHANGELOG.md) for flags you must export again. By hand, remove and
+re-add the catalogs, then run `specify bundle update whetstone`: `bundle install`
+refuses a bundle that is already installed.
+
 **What the install is.** Spec Kit installs from the catalogs without asking,
 including the `decision` step's Python code; adding them is a trust decision. The
 step catalog pins `decision` 0.9.0 by its hashes. The install creates two files you
@@ -168,7 +178,7 @@ G=https://raw.githubusercontent.com/github/spec-kit/main                 # Spec 
 specify extension catalog add $G/extensions/catalog.json --name default --install-allowed --priority 2
 specify workflow catalog add $G/workflows/catalog.json --name default    # a project catalog hides them
 specify workflow step catalog add $G/workflows/step-catalog.json --name default
-specify bundle install whetstone --version 0.7.0
+specify bundle install whetstone --version 0.7.1
 ```
 
 Then add to `.gitignore` (and `repo/` in a harness):
@@ -382,14 +392,14 @@ Not covered:
 2. Build:
    ```bash
    python3 tools/build.py \
-     --assets-url https://github.com/kandy-babbel/whetstone/releases/download/v0.7.0 \
+     --assets-url https://github.com/kandy-babbel/whetstone/releases/download/v0.7.1 \
      --catalog-url https://raw.githubusercontent.com/kandy-babbel/whetstone/main/catalog
    ```
    This empties `dist/`, then writes the extension zips (each with `LICENSE`), the
    workflow files and the bundle zip there. It also rewrites the catalogs in
    `catalog/` with each file's sha256. The version a catalog entry replaces moves to
    the entry's `releases`, so earlier versions stay installable with `--version`.
-3. Create release `v0.7.0` with every file in `dist/` as an asset.
+3. Create release `v0.7.1` with every file in `dist/` as an asset.
    Never change a release's assets after publishing. Spec Kit checks each download
    against the catalog's sha256 and caches catalogs for an hour, so a changed file
    fails to install. Fix by releasing a new version.

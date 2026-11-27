@@ -2,7 +2,7 @@ schema_version: '1.0'
 extension:
   id: whetstone-triage
   name: 'Whetstone: triage'
-  version: 0.7.0
+  version: 0.7.1
   description: Evidence gathering and result collection for deciding, with a decision model, whether each
     blocking finding is bikeshedding.
   author: Kirill Andriychuk

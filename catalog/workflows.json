@@ -1,15 +1,15 @@
 {
  "schema_version": "1.0",
- "updated_at": "2026-11-27T09:33:42Z",
+ "updated_at": "2026-11-27T11:53:44Z",
  "workflows": {
   "whetstone-canary": {
    "id": "whetstone-canary",
    "name": "Whetstone: lockdown canary",
    "description": "Run an agent that tries to write the repository and the other protected paths; fail unless every write fails",
    "author": "Kirill Andriychuk",
-   "version": "0.7.0",
-   "url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.7.0/whetstone-canary-0.7.0.yml",
-   "sha256": "b6c2d88cb1caa63024d6107c47890c45e16b759c96b554b523dac7c0b967e739",
+   "version": "0.7.1",
+   "url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.7.1/whetstone-canary-0.7.1.yml",
+   "sha256": "f260d511dd0cdf173f4480d6528e9543f4b988e03984257a66d96d0b5c838a0c",
    "requires": {
     "speckit_version": ">=1.3.3"
    },
@@ -42,6 +42,13 @@
      "requires": {
       "speckit_version": ">=1.3.3"
      }
+    },
+    "0.7.0": {
+     "url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.7.0/whetstone-canary-0.7.0.yml",
+     "sha256": "b6c2d88cb1caa63024d6107c47890c45e16b759c96b554b523dac7c0b967e739",
+     "requires": {
+      "speckit_version": ">=1.3.3"
+     }
     }
    }
   },
@@ -50,9 +57,9 @@
    "name": "Whetstone: claim check",
    "description": "Quote the claims in the text of the change and judge each K1/K9 claim against the tree the change leaves; write .review/current/claim-check.json. Reads the repository only.",
    "author": "Kirill Andriychuk",
-   "version": "0.7.0",
-   "url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.7.0/whetstone-claim-check-0.7.0.yml",
-   "sha256": "7dac89cc219763ef5aa7194a37a5e85806861913547dbf6048652cf8ef8ad316",
+   "version": "0.7.1",
+   "url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.7.1/whetstone-claim-check-0.7.1.yml",
+   "sha256": "f92b5dfceea180a5ff43b9a6ab231678620a68d0f5d512704c17e3754094c5b9",
    "requires": {
     "speckit_version": ">=1.3.3"
    },
@@ -85,6 +92,13 @@
      "requires": {
       "speckit_version": ">=1.3.3"
      }
+    },
+    "0.7.0": {
+     "url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.7.0/whetstone-claim-check-0.7.0.yml",
+     "sha256": "7dac89cc219763ef5aa7194a37a5e85806861913547dbf6048652cf8ef8ad316",
+     "requires": {
+      "speckit_version": ">=1.3.3"
+     }
     }
    }
   },
@@ -93,9 +107,9 @@
    "name": "Whetstone: claim check, one judge",
    "description": "One claim-check judge, for one claim; called per claim by whetstone-claim-check so that a judge's failure leaves its claim unjudged instead of stopping the run",
    "author": "Kirill Andriychuk",
-   "version": "0.7.0",
-   "url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.7.0/whetstone-claim-judge-0.7.0.yml",
-   "sha256": "f6882a8ccd179c6e66bcf9192d967242100e8ee397fb6728e9e4d7431696442a",
+   "version": "0.7.1",
+   "url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.7.1/whetstone-claim-judge-0.7.1.yml",
+   "sha256": "2ba8fbff0f4903669d088d6e0cbfa459b87d832300d7d594922f2d3553fb7a84",
    "requires": {
     "speckit_version": ">=1.3.3"
    },
@@ -128,6 +142,13 @@
      "requires": {
       "speckit_version": ">=1.3.3"
      }
+    },
+    "0.7.0": {
+     "url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.7.0/whetstone-claim-judge-0.7.0.yml",
+     "sha256": "f6882a8ccd179c6e66bcf9192d967242100e8ee397fb6728e9e4d7431696442a",
+     "requires": {
+      "speckit_version": ">=1.3.3"
+     }
     }
    }
   },
@@ -136,9 +157,9 @@
    "name": "Whetstone: claim check, one reader",
    "description": "One claim-check reader, for one batch of hunks; called per batch by whetstone-claim-check so that a reader's failure leaves its files unread instead of stopping the run",
    "author": "Kirill Andriychuk",
-   "version": "0.7.0",
-   "url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.7.0/whetstone-claim-read-0.7.0.yml",
-   "sha256": "7d2c05b6ce1d3d2a810a74a2f2cf52e62174c09e70de279eb90270c88fea6dec",
+   "version": "0.7.1",
+   "url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.7.1/whetstone-claim-read-0.7.1.yml",
+   "sha256": "284daa55a56736e38795880bdac6ff196634e5e81ef9fe2d5df80ec70ace3ab1",
    "requires": {
     "speckit_version": ">=1.3.3"
    },
@@ -171,6 +192,13 @@
      "requires": {
       "speckit_version": ">=1.3.3"
      }
+    },
+    "0.7.0": {
+     "url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.7.0/whetstone-claim-read-0.7.0.yml",
+     "sha256": "7d2c05b6ce1d3d2a810a74a2f2cf52e62174c09e70de279eb90270c88fea6dec",
+     "requires": {
+      "speckit_version": ">=1.3.3"
+     }
     }
    }
   },
@@ -179,9 +207,9 @@
    "name": "Whetstone: review",
    "description": "Review the change with pr-review-toolkit and write .review/current/findings.json (cc-review Findings). Reads the repository only.",
    "author": "Kirill Andriychuk",
-   "version": "0.7.0",
-   "url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.7.0/whetstone-review-0.7.0.yml",
-   "sha256": "8a53b7c1fe3c81d16d4e16291780e330476fa7e548a4f7907969d9f6f6bddbde",
+   "version": "0.7.1",
+   "url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.7.1/whetstone-review-0.7.1.yml",
+   "sha256": "227c3533262ccfa62c00dfb93b8a0cb82158ae468db3d43ab3ebfa6d821097c7",
    "requires": {
     "speckit_version": ">=1.3.3"
    },
@@ -221,6 +249,13 @@
      "requires": {
       "speckit_version": ">=1.3.3"
      }
+    },
+    "0.7.0": {
+     "url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.7.0/whetstone-review-0.7.0.yml",
+     "sha256": "8a53b7c1fe3c81d16d4e16291780e330476fa7e548a4f7907969d9f6f6bddbde",
+     "requires": {
+      "speckit_version": ">=1.3.3"
+     }
     }
    }
   },
@@ -229,9 +264,9 @@
    "name": "Whetstone: shim check",
    "description": "Decide the defect class, other occurrences and fix strategy of each actionable finding; write .review/current/shim-check.json. Reads the repository only.",
    "author": "Kirill Andriychuk",
-   "version": "0.7.0",
-   "url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.7.0/whetstone-shim-check-0.7.0.yml",
-   "sha256": "7253db44ad6314ab21f22bc895a97174a11a7f9d5524c3b070841975a5c764be",
+   "version": "0.7.1",
+   "url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.7.1/whetstone-shim-check-0.7.1.yml",
+   "sha256": "31398ab3b3eacc56fade41358cb2bda27b805948b418154ceec4396f9efc0b93",
    "requires": {
     "speckit_version": ">=1.3.3"
    },
@@ -271,6 +306,13 @@
      "requires": {
       "speckit_version": ">=1.3.3"
      }
+    },
+    "0.7.0": {
+     "url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.7.0/whetstone-shim-check-0.7.0.yml",
+     "sha256": "7253db44ad6314ab21f22bc895a97174a11a7f9d5524c3b070841975a5c764be",
+     "requires": {
+      "speckit_version": ">=1.3.3"
+     }
     }
    }
   },
@@ -279,9 +321,9 @@
    "name": "Whetstone: triage",
    "description": "Decide with the decision step whether each blocking finding is bikeshedding; write .review/current/triage.json",
    "author": "Kirill Andriychuk",
-   "version": "0.7.0",
-   "url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.7.0/whetstone-triage-0.7.0.yml",
-   "sha256": "c304b570f6fdaf5cce9d4de7a33c02adbfa05b1e4e944d2716e362484c1d435c",
+   "version": "0.7.1",
+   "url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.7.1/whetstone-triage-0.7.1.yml",
+   "sha256": "d47dc57c3e4da6659228b967c0a30f4088b0dd68c4ed6718d455c3d1d53c073b",
    "requires": {
     "speckit_version": ">=1.3.3"
    },
@@ -321,6 +363,13 @@
      "requires": {
       "speckit_version": ">=1.3.3"
      }
+    },
+    "0.7.0": {
+     "url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.7.0/whetstone-triage-0.7.0.yml",
+     "sha256": "c304b570f6fdaf5cce9d4de7a33c02adbfa05b1e4e944d2716e362484c1d435c",
+     "requires": {
+      "speckit_version": ">=1.3.3"
+     }
     }
    }
   },
@@ -329,9 +378,9 @@
    "name": "Whetstone",
    "description": "Review a change with pr-review-toolkit, drop bikeshedding, size each fix, and check every claim its text makes; a report for the person or agent who fixes it. Reads the repository only.",
    "author": "Kirill Andriychuk",
-   "version": "0.7.0",
-   "url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.7.0/whetstone-0.7.0.yml",
-   "sha256": "6367dc57ecdf91a6a02e4b18b940c2303218f187d15522e455f8999cbff1d59e",
+   "version": "0.7.1",
+   "url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.7.1/whetstone-0.7.1.yml",
+   "sha256": "51ee2c239449ff61746efaad2b9d8e5a1169ed808719a4e55f9ad993226d6602",
    "requires": {
     "speckit_version": ">=1.3.3"
    },
@@ -368,6 +417,13 @@
     "0.6.1": {
      "url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.6.1/whetstone-0.6.1.yml",
      "sha256": "45ad0a4544c5ee915ace009a6c97c5d44ff16d544fa85f080909b51652e1e897",
+     "requires": {
+      "speckit_version": ">=1.3.3"
+     }
+    },
+    "0.7.0": {
+     "url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.7.0/whetstone-0.7.0.yml",
+     "sha256": "6367dc57ecdf91a6a02e4b18b940c2303218f187d15522e455f8999cbff1d59e",
      "requires": {
       "speckit_version": ">=1.3.3"
      }
