@@ -1,0 +1,35 @@
+schema_version: '1.0'
+bundle:
+  id: whetstone-planner
+  name: 'Whetstone: planner'
+  version: 0.9.0
+  role: developer
+  description: Scope a GitHub issue in a spec folder before it is built, each Spec Kit step checked before the next (premise, specify, grill, plan, critique, tasks). Writes the spec folder only. Installs apart from the Whetstone review, in the repository you plan in.
+  author: Kirill Andriychuk
+  license: MIT
+requires:
+  speckit_version: '>=1.3.3'
+  tools:
+  - git
+  - gh
+  - claude
+  mcp: []
+integration:
+  id: claude
+provides:
+  extensions:
+  - id: whetstone-plan
+    version: 0.9.0
+  presets:
+  # Spec Kit requires both fields here and records them; each template's own strategy is set in its preset.yml.
+  - id: whetstone-settled-design
+    version: 0.9.0
+    priority: 10
+    strategy: append
+  workflows:
+  - id: whetstone-plan
+    version: 0.9.0
+tags:
+- planning
+- workflow
+- claude

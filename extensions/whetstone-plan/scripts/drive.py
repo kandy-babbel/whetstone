@@ -5,8 +5,8 @@
     drive.py rescope <spec file> <issue> <spec dir>    a rescope
     drive.py resume <run id> [<input>=<value>]
 
-The workflow, its preset and this extension are installed by the Whetstone bundle and committed with it, so a run
-installs nothing.
+The workflow, its preset and this extension are installed by the whetstone-planner bundle (`install.sh --plan`) and
+committed with it, so a run installs nothing.
 
 Values reach specify as argv, never through a shell: issue and ruling text routinely carry backticks.
 The report is read from the run's state.json because the specify CLI prints only a generic error for a
@@ -25,9 +25,9 @@ WORKFLOW = "whetstone-plan"
 # shell exports: planning agents write the spec folder, which a Whetstone review's agents may never do.
 AGENT_ARGS = ('--setting-sources project --allowedTools "Read Grep Glob Write Edit Bash(bash .specify/*) '
               'Bash(.specify/*) Bash(ls:*) Bash(cat:*) Bash(mkdir:*) Bash(date:*)"')
-# Spec Kit imports the bundle's `decision` step on every workflow run. Without a prefix, Python compiles it next to its
-# source under .specify/, and the next Whetstone review refuses to start. The prefix the README has the review shell
-# export is used when the shell exports none.
+# Where the review is installed too, Spec Kit imports its `decision` step on every workflow run. Without a prefix, Python compiles it next to its
+# source under .specify/, and the next Whetstone review there refuses to start. The prefix the README has the review
+# shell export is used when the shell exports none.
 PYC_ENV = "PYTHONPYCACHEPREFIX"
 PYC_DEFAULT = Path.home() / ".cache" / "whetstone-pyc"
 OPEN_MARKERS = "Open clarification markers remain"

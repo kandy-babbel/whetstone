@@ -84,9 +84,9 @@ tools allow, or with the longest timeout they allow: headless steps take up to a
 8. **Done.** When the report says `completed`, the spec folder is in the working tree and nothing is committed.
    End with `Spec folder: <SPEC_DIR>` and tell the person:
    - to review it and commit it themselves;
-   - that Spec Kit recorded the folder in `.specify/feature.json`, and a Whetstone review refuses to start while
-     an uncommitted file sits under `.specify/`: delete it once the spec needs no more `/speckit-*` work, before
-     the next review.
+   - that Spec Kit recorded the folder in `.specify/feature.json`. Where Whetstone's review is installed too, a
+     review refuses to start while an uncommitted file sits under `.specify/`: delete it once the spec needs no
+     more `/speckit-*` work, before the next review.
 
 A verdict is the person's decision. Never pass `approve`, or a premise pick, without the person saying so in this
 session.

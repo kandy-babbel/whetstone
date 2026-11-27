@@ -31,12 +31,9 @@ for where the name comes from. One run:
 Agents never write the repository (see the repository README's lockdown section).
 Each answers on its standard output; the core takes the answer from the run state.
 
-The bundle also plans: `whetstone-plan` scopes a GitHub issue in a spec folder before
-it is built (premise, specify, grill, plan, critique, tasks, each step checked before
-the next), from `/speckit-whetstone-plan-scope #<issue>` in a repository. Planning
-writes the spec folder and nothing else, outside the review lockdown; it needs the
-community `grill` and `critique` extensions. See
-[`extensions/whetstone-plan/README.md`](../extensions/whetstone-plan/README.md).
+Planning, which scopes an issue in a spec folder before it is built, is a separate
+bundle, `whetstone-planner` ([`bundle-plan/README.md`](../bundle-plan/README.md)): this
+one does not install it.
 
 ## Components
 
@@ -48,8 +45,6 @@ community `grill` and `critique` extensions. See
 | `whetstone-shim-check` + workflow `whetstone-shim-check` | extension, workflow | reads findings, summary, the change's files and diff; writes `shim-check.json` (`shim-check.schema.json`) |
 | `whetstone-claim-check` + workflows `whetstone-claim-check`, `whetstone-claim-read`, `whetstone-claim-judge` | extension, workflows | reads the change; writes `claim-check.json` (`claim-check.schema.json`); input `model` (default `sonnet`) |
 | `whetstone-canary` | workflow | the lockdown canary; input `model` (default `haiku`) |
-| `whetstone-plan` + workflow `whetstone-plan` | extension, workflow | writes `specs/<issue>-<short-name>/` (spec, plan, research, tasks); inputs `spec`, `issue`, `spec_dir`, `kind`, and the three gate verdicts; driven by `/speckit-whetstone-plan-scope` |
-| `whetstone-settled-design` | preset | the premise and root cause sections of `spec.md`, the `## Mechanisms` section of `plan.md`, and the `research.md` decision format that `whetstone-plan` checks |
 | `decision` 0.9.0 | workflow step | community step package (markuswondrak/spec-kit-decision-step) |
 | `whetstone` | workflow | composes the modules; inputs `triage`, `shim_check`, `claim_check`, `allow_protected` (booleans), `triage_threshold`, `claim_model` |
 

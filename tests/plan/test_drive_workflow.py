@@ -62,7 +62,7 @@ if not os.environ.get("CLAUDE_NO_FEATURE_JSON"):
 '''
 
 
-# What the Whetstone bundle's other extensions and the two the run needs register, as Spec Kit records them.
+# What the whetstone-plan extension and the two the run needs register, as Spec Kit records them.
 REGISTRY = {"schema_version": "1.0", "extensions": {
     "whetstone-plan": {"enabled": True, "registered_commands": {"claude": ["speckit.whetstone-plan.scope"]}},
     "grill": {"enabled": True, "registered_commands": {"claude": ["speckit.grill.me", "speckit.grill.with-docs"]}},
@@ -422,8 +422,9 @@ def workflow_steps(steps=None):
 
 
 class Installed(unittest.TestCase):
-    """The bundle installs the workflow, its preset and this extension; a run installs nothing and leaves nothing
-    under .specify/ that would stop the next Whetstone review but Spec Kit's own pointer to the spec folder."""
+    """The whetstone-planner bundle installs the workflow, its preset and this extension; a run installs nothing and
+    leaves nothing under .specify/ that would stop a Whetstone review there but Spec Kit's own pointer to the spec
+    folder."""
 
     def specify_files(self, project):
         return {p for p in (project.root / ".specify").rglob("*") if "runs" not in p.relative_to(project.root).parts}

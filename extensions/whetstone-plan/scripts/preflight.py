@@ -43,8 +43,8 @@ def stops(issue: str, harness: bool, registry: dict) -> list[str]:
                      "with the issue's number.")
     if harness:
         found.append("this project is a Whetstone harness (a clone under `repo/`), and planning writes its spec "
-                     "folder into the repository it plans for. Next step: plan in a repository that has Whetstone "
-                     "installed in it.")
+                     "folder into the repository it plans for. Next step: install Whetstone's planning in that "
+                     "repository (`install.sh --plan`) and plan there.")
     commands = _commands(registry)
     for extension, command in NEEDED.items():
         if command not in commands:

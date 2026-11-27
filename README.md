@@ -19,7 +19,8 @@ issue in a spec folder: it asks first whether the issue is worth a spec at all, 
 runs Spec Kit's specify, grill, plan, critique and tasks with a check between each
 step and the next ([Scope an issue before it is built](#scope-an-issue-before-it-is-built)).
 Planning writes the spec folder, and only that; it runs in a repository, never in a
-harness, and outside the review lockdown.
+harness, and outside the review lockdown. It is a separate bundle with its own
+install, so it can run on another machine than the review.
 
 It runs in one of two layouts:
 - **in a repository**: Whetstone is installed and committed in the repository it
@@ -94,8 +95,8 @@ keeps the answer in the run state, and Whetstone's own steps take it from there.
 | `whetstone-shim-check` | extension + workflow | [patch or class fix](extensions/whetstone-shim-check/README.md) |
 | `whetstone-claim-check` | extension + workflows | [claims checked against the code](extensions/whetstone-claim-check/README.md); `whetstone-claim-read` and `whetstone-claim-judge` run one reader or judge each |
 | `whetstone-canary` | workflow | the lockdown canary ([lockdown](#lock-down-claude-code)) |
-| `whetstone-plan` | extension + workflow | [scope an issue in a spec folder](extensions/whetstone-plan/README.md) |
-| `whetstone-settled-design` | preset | the spec and plan sections `whetstone-plan` checks ([its README](extensions/whetstone-plan/README.md#the-settled-design-preset)) |
+| `whetstone-planner` | bundle: extension + workflow + preset, installed apart ([bundle README](bundle-plan/README.md)) | [scope an issue in a spec folder](extensions/whetstone-plan/README.md) |
+| `whetstone-settled-design` | preset, in `whetstone-planner` | the spec and plan sections `whetstone-plan` checks ([its README](extensions/whetstone-plan/README.md#the-settled-design-preset)) |
 | `whetstone` | workflow | composes the modules ([bundle README](bundle/README.md)) |
 | `decision` 0.9.0 | workflow step | community step, [markuswondrak/spec-kit-decision-step](https://github.com/markuswondrak/spec-kit-decision-step) |
 
@@ -186,12 +187,10 @@ specify init --here --integration claude --script sh      # if not a Spec Kit pr
 C=https://raw.githubusercontent.com/kandy-babbel/whetstone/main/catalog
 specify bundle catalog add $C/bundles.json --id whetstone
 specify extension catalog add $C/extensions.json --name whetstone --install-allowed --priority 1
-specify preset catalog add $C/presets.json --name whetstone --install-allowed --priority 1
 specify workflow catalog add $C/workflows.json --name whetstone
 specify workflow step catalog add $C/steps.json --name whetstone
 G=https://raw.githubusercontent.com/github/spec-kit/main                 # Spec Kit's own catalogs back:
 specify extension catalog add $G/extensions/catalog.json --name default --install-allowed --priority 2
-specify preset catalog add $G/presets/catalog.json --name default --install-allowed --priority 2
 specify workflow catalog add $G/workflows/catalog.json --name default    # a project catalog hides them
 specify workflow step catalog add $G/workflows/step-catalog.json --name default
 specify bundle install whetstone --version 0.9.0
@@ -287,8 +286,18 @@ Kit lists them like any skill; their descriptions say not to run them directly.
 
 ## Scope an issue before it is built
 
-Planning runs in a repository with Whetstone installed in it, from your own Claude
-Code session, on the branch you want the spec on:
+Planning is a bundle of its own, `whetstone-planner`, so it can live on another machine
+than the review: the machine you work on, say, while reviews run on an agent machine
+or in a harness. It needs none of the review's requirements (sandbox, `uv`,
+`base_ref`, `TYPESAFE_API_KEY`), only `git`, `python3`, Spec Kit, Claude Code and
+`gh`. Install it in the repository you plan in, from its root, and commit what it
+adds:
+
+```bash
+sh install.sh --plan
+```
+
+Then, from your own Claude Code session, on the branch you want the spec on:
 
 ```
 /speckit-whetstone-plan-scope #123
@@ -462,8 +471,9 @@ Not covered:
 ## Release (maintainers)
 
 1. Set the same version in every `extensions/*/extension.yml`, every
-   `presets/*/preset.yml`, every `workflows/*.yml`, and in `bundle/bundle.yml`, both
-   its own version and the versions it pins.
+   `presets/*/preset.yml`, every `workflows/*.yml`, and in `bundle/bundle.yml` and
+   `bundle-plan/bundle.yml`, both their own version and the versions they pin. Each
+   extension, preset and workflow belongs to exactly one of the two bundles.
 2. Run the tests (they need `specify` and PyYAML; the end-to-end ones run the real
    Spec Kit CLI with a stand-in `claude`, and take about two minutes):
    ```bash
@@ -476,7 +486,7 @@ Not covered:
      --catalog-url https://raw.githubusercontent.com/kandy-babbel/whetstone/main/catalog
    ```
    This empties `dist/`, then writes the extension and preset zips (each with
-   `LICENSE`), the workflow files and the bundle zip there. It also rewrites the catalogs in
+   `LICENSE`), the workflow files and the two bundle zips there. It also rewrites the catalogs in
    `catalog/` with each file's sha256. The version a catalog entry replaces moves to
    the entry's `releases`, so earlier versions stay installable with `--version`.
 4. Create release `v0.9.0` with every file in `dist/` as an asset.
@@ -500,7 +510,8 @@ install.sh                the installer, for a repository or a harness
 extensions/<id>/          one Spec Kit extension each (manifest, README, prompts, scripts)
 presets/<id>/             one Spec Kit preset each (templates and command additions)
 workflows/                the module workflows, whetstone and whetstone-plan
-bundle/                   bundle manifest and README
+bundle/                   the whetstone bundle (review): manifest and README
+bundle-plan/              the whetstone-planner bundle (planning): manifest and README
 catalog/                  the catalogs Spec Kit reads (generated, except steps.json)
 tools/build.py            builds dist/ and catalog/
 tests/plan/               tests of whetstone-plan, its workflow and its preset

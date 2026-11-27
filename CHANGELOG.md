@@ -2,9 +2,10 @@
 
 ## 0.9.0
 
-- **Whetstone plans.** A new extension, `whetstone-plan`, with its workflow and a
-  preset, `whetstone-settled-design`, scopes a GitHub issue in a spec folder before
-  it is built: `/speckit-whetstone-plan-scope #<issue>` (or `rescope <spec folder>
+- **Whetstone plans.** A new bundle, `whetstone-planner`, installed apart from the
+  review with `sh install.sh --plan`, so planning can run on another machine than
+  reviews. Its extension, workflow and preset (`whetstone-settled-design`) scope a
+  GitHub issue in a spec folder before it is built: `/speckit-whetstone-plan-scope #<issue>` (or `rescope <spec folder>
   #<issue>`). The run first asks whether the issue is worth a spec at all (the
   premise: six questions, each answered with its source, and your pick of `write the
   spec`, `no spec needed` or `not worth doing`). Then it runs Spec Kit's specify,
@@ -19,10 +20,14 @@
   `planner` plugin, without its GitHub App, project-board and `codeworks` parts.
 - **The preset applies project-wide.** Like any Spec Kit preset,
   `whetstone-settled-design` adds its sections to every `/speckit-specify` and
-  `/speckit-plan` in the project, not only to planning runs.
-- **`install.sh` registers a preset catalog,** `catalog/presets.json`, and puts Spec
-  Kit's own preset catalog back unless `--no-defaults` is given. `tools/build.py`
-  builds presets.
+  `/speckit-plan` in the project where planning is installed, not only to planning
+  runs. The review bundle does not install it.
+- **`install.sh --plan`** installs the `whetstone-planner` bundle in the repository it
+  runs in: it needs `git`, `python3` and Spec Kit (not `uv` or the sandbox), refuses
+  a harness and `--base-ref`, and registers a preset catalog, `catalog/presets.json`,
+  with Spec Kit's own preset catalog back unless `--no-defaults` is given.
+  `tools/build.py` builds presets and every bundle directory (`bundle/`,
+  `bundle-plan/`).
 - **Tests.** `tests/plan/` covers the planning checks, the skill's text and the
   workflow, end to end against the real Spec Kit CLI with a stand-in `claude`.
 

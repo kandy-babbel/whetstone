@@ -4,7 +4,7 @@ bundle:
   name: Whetstone
   version: 0.9.0
   role: developer
-  description: Review a change with pr-review-toolkit, drop bikeshedding, size each fix, and check every claim its text makes; a report for the person or agent who fixes it. Reviews read the repository only. Also scopes an issue in a spec folder before it is built.
+  description: Review a change with pr-review-toolkit, drop bikeshedding, size each fix, and check every claim its text makes; a report for the person or agent who fixes it. Reads the repository only.
   author: Kirill Andriychuk
   license: MIT
 requires:
@@ -28,14 +28,6 @@ provides:
     version: 0.9.0
   - id: whetstone-claim-check
     version: 0.9.0
-  - id: whetstone-plan
-    version: 0.9.0
-  presets:
-  # Spec Kit requires both fields here and records them; each template's own strategy is set in its preset.yml.
-  - id: whetstone-settled-design
-    version: 0.9.0
-    priority: 10
-    strategy: append
   steps:
   - id: decision
     version: 0.9.0
@@ -56,10 +48,7 @@ provides:
     version: 0.9.0
   - id: whetstone
     version: 0.9.0
-  - id: whetstone-plan
-    version: 0.9.0
 tags:
 - review
 - workflow
 - claude
-- planning

@@ -52,9 +52,12 @@ A change with no issue yet: open one first (`gh issue create`), then scope it.
 
 ## Requirements
 
-- The Whetstone bundle, installed **in the repository** you plan in. A harness
+- The `whetstone-planner` bundle, installed **in the repository** you plan in, from its
+  root: `sh install.sh --plan`. It is separate from the review, so the planning
+  machine needs nothing the review does (no sandbox, no `uv`, no `base_ref`), and a
+  review machine never gets the planner. Both can share a repository. A harness
   cannot plan: planning writes into the repository, and a harness exists so that
-  nothing is written there.
+  nothing is written there; `install.sh --plan` refuses one.
 - Two Spec Kit community extensions. They are part of neither Spec Kit nor Whetstone,
   and Spec Kit's catalog lists them as discovery-only, not vetted. Read each, then
   install it from an archive you have checked, or from a local copy:
@@ -87,20 +90,22 @@ it: the agents read the issue's text and the code, as you would.
 
 - The spec folder, uncommitted. Review it and commit it yourself.
 - `.specify/feature.json`, Spec Kit's pointer to the current spec, which Spec Kit's
-  own commands (`/speckit-implement` and the rest) read. A Whetstone review refuses
-  to start while any file under `.specify/` differs from `HEAD`, so delete it before
-  the next review once you no longer need it.
+  own commands (`/speckit-implement` and the rest) read. Where the review is
+  installed too, a review refuses to start while any file under `.specify/` differs
+  from `HEAD`, so delete it before the next review once you no longer need it.
 - The run's state under `.specify/workflows/runs/`, which the install's `.gitignore`
   already excludes.
 
 `drive.py` runs Spec Kit with `PYTHONPYCACHEPREFIX` set (yours, or
 `~/.cache/whetstone-pyc`), and every script runs as `python3 -I -B`. So no compiled
-Python lands under `.specify/`, which a review would refuse.
+Python lands under `.specify/`, which a review in the same repository would refuse.
+Without that prefix, Spec Kit would compile the review's `decision` step there on
+every planning run.
 
 ## The settled-design preset
 
-The bundle also installs the `whetstone-settled-design` preset, which the workflow's
-checks rely on. It adds to Spec Kit's spec template the `## Why this is worth doing`
+The `whetstone-planner` bundle also installs the `whetstone-settled-design` preset,
+which the workflow's checks rely on. It adds to Spec Kit's spec template the `## Why this is worth doing`
 and `## Root cause` sections, and to the plan template a `## Mechanisms` section and
 the `research.md` decision format. Like any preset, it applies to every
 `/speckit-specify` and `/speckit-plan` in the project, not only to planning runs.

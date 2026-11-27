@@ -3,8 +3,11 @@
 #
 #   sh install.sh                                  # here, in a repository you may commit to
 #   sh install.sh --harness <repository> [dir]     # a harness of your own around a clone
+#   sh install.sh --plan                           # planning only, here, in the repository you plan in
 #
 # Options:
+#   --plan          install Whetstone's planning (the whetstone-planner bundle) instead
+#                   of its review; it can share a repository with the review or not
 #   --version V     the Whetstone bundle version to install (default: the one below)
 #   --base-ref R    the branch pull requests merge into (default: the one already
 #                   configured, else what origin/HEAD names, else origin/main)
@@ -25,6 +28,7 @@ HARNESS=
 TARGET=
 BASE_REF=
 DEFAULTS=1
+PLAN=0
 
 say() { printf '%s\n' "$*"; }
 die() { printf 'install.sh: %s\n' "$*" >&2; exit 1; }
@@ -34,8 +38,11 @@ Installs Whetstone into a repository, or into a harness around a clone of one.
 
   sh install.sh                                  # here, in a repository you may commit to
   sh install.sh --harness <repository> [dir]     # a harness of your own around a clone
+  sh install.sh --plan                           # planning only, here, in the repository you plan in
 
 Options:
+  --plan          install Whetstone's planning (the whetstone-planner bundle) instead
+                  of its review; it can share a repository with the review or not
   --version V     the Whetstone bundle version to install (default: the one below)
   --base-ref R    the branch pull requests merge into (default: the one already
                   configured, else what origin/HEAD names, else origin/main)
@@ -58,10 +65,21 @@ while [ $# -gt 0 ]; do
         --base-ref) [ $# -ge 2 ] || die "--base-ref needs a value"; BASE_REF=$2; shift 2 ;;
         --catalog) [ $# -ge 2 ] || die "--catalog needs a URL"; CATALOG=$2; shift 2 ;;
         --no-defaults) DEFAULTS=0; shift ;;
+        --plan) PLAN=1; shift ;;
         -h|--help) usage; exit 0 ;;
         *) die "unknown argument: $1" ;;
     esac
 done
+
+# Planning writes its spec folder into the repository it plans for, so it is never
+# installed in a harness, and it has no base_ref.
+if [ "$PLAN" = 1 ]; then
+    BUNDLE=whetstone-planner
+    [ -z "$HARNESS" ] || die "--plan and --harness do not go together: planning writes into the repository, so install it there"
+    [ -z "$BASE_REF" ] || die "--base-ref is the review's setting; --plan has none"
+else
+    BUNDLE=whetstone
+fi
 
 # 0. Spec Kit takes catalogs over HTTPS only, localhost included; refuse anything
 # else now, before a catalog is touched.
@@ -72,8 +90,9 @@ for u in "$CATALOG" "$SPECKIT"; do
     esac
 done
 
-# 1. Tools.
-for t in git python3 uv specify; do
+# 1. Tools. Planning runs no uv and no sandbox.
+if [ "$PLAN" = 1 ]; then TOOLS="git python3 specify"; else TOOLS="git python3 uv specify"; fi
+for t in $TOOLS; do
     command -v "$t" >/dev/null 2>&1 || case $t in
         specify) die "specify is missing. Install Spec Kit: uv tool install specify-cli --from git+https://github.com/github/spec-kit.git" ;;
         uv) die "uv is missing: https://docs.astral.sh/uv/getting-started/installation/" ;;
@@ -81,7 +100,11 @@ for t in git python3 uv specify; do
     esac
 done
 command -v claude >/dev/null 2>&1 || say "note: claude is not on PATH; the runs need Claude Code 2.1.329 or later"
-command -v bwrap >/dev/null 2>&1 || say "note: bwrap (bubblewrap) is not on PATH; Claude Code's sandbox needs it, and every run starts by checking it"
+if [ "$PLAN" = 1 ]; then
+    command -v gh >/dev/null 2>&1 || say "note: gh is not on PATH; planning reads the issue with it"
+else
+    command -v bwrap >/dev/null 2>&1 || say "note: bwrap (bubblewrap) is not on PATH; Claude Code's sandbox needs it, and every run starts by checking it"
+fi
 
 # 2. Where.
 if [ -n "$HARNESS" ]; then
@@ -95,12 +118,15 @@ if [ -n "$HARNESS" ]; then
     [ -L repo ] && die "repo/ is a symbolic link; Whetstone refuses that"
 else
     [ "$(git rev-parse --show-toplevel 2>/dev/null)" = "$(pwd -P)" ] || die "run this from the root of a git repository, or use --harness <repository>"
-    [ -d repo ] && [ -d repo/.git ] && die "there is a clone under repo/: this looks like a harness, so run with --harness"
+    if [ -d repo ] && [ -d repo/.git ]; then
+        [ "$PLAN" = 1 ] && die "there is a clone under repo/: this looks like a harness, and planning is never installed in one; install it in the repository itself"
+        die "there is a clone under repo/: this looks like a harness, so run with --harness"
+    fi
 fi
 ROOT=$(pwd)
 
-# 2b. uv from proto needs a pinned version here, or every core step fails.
-case $(command -v uv) in
+# 2b. uv from proto needs a pinned version here, or every core step fails. Planning runs no uv.
+[ "$PLAN" = 1 ] || case $(command -v uv) in
     */.proto/shims/*|"${PROTO_HOME:-$HOME/.proto}"/shims/*)
         if ! grep -qs '^uv *=' .prototools; then
             UV=$(ls "${PROTO_HOME:-$HOME/.proto}/tools/uv" 2>/dev/null | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
@@ -169,49 +195,69 @@ set_catalog() {   # kind file key name url -- add arguments
     fi
     [ -z "$was" ] || say "replaced the $kind catalog '$name' (was $was)"
 }
+# Planning has a preset and no workflow step; the review has a step and no preset.
 set_catalog bundle .specify/bundle-catalogs.yml id whetstone "$CATALOG/bundles.json" -- --id whetstone
 set_catalog extension .specify/extension-catalogs.yml name whetstone "$CATALOG/extensions.json" -- --name whetstone --install-allowed --priority 1
-set_catalog preset .specify/preset-catalogs.yml name whetstone "$CATALOG/presets.json" -- --name whetstone --install-allowed --priority 1
 set_catalog workflow .specify/workflow-catalogs.yml name whetstone "$CATALOG/workflows.json" -- --name whetstone
-set_catalog step .specify/step-catalogs.yml name whetstone "$CATALOG/steps.json" -- --name whetstone
+if [ "$PLAN" = 1 ]; then
+    set_catalog preset .specify/preset-catalogs.yml name whetstone "$CATALOG/presets.json" -- --name whetstone --install-allowed --priority 1
+else
+    set_catalog step .specify/step-catalogs.yml name whetstone "$CATALOG/steps.json" -- --name whetstone
+fi
 if [ "$DEFAULTS" = 1 ]; then
     set_catalog extension .specify/extension-catalogs.yml name default "$SPECKIT/extensions/catalog.json" -- --name default --install-allowed --priority 2
-    set_catalog preset .specify/preset-catalogs.yml name default "$SPECKIT/presets/catalog.json" -- --name default --install-allowed --priority 2
     set_catalog workflow .specify/workflow-catalogs.yml name default "$SPECKIT/workflows/catalog.json" -- --name default
-    set_catalog step .specify/step-catalogs.yml name default "$SPECKIT/workflows/step-catalog.json" -- --name default
+    if [ "$PLAN" = 1 ]; then
+        set_catalog preset .specify/preset-catalogs.yml name default "$SPECKIT/presets/catalog.json" -- --name default --install-allowed --priority 2
+    else
+        set_catalog step .specify/step-catalogs.yml name default "$SPECKIT/workflows/step-catalog.json" -- --name default
+    fi
 fi
 
 installed() {
     [ -f .specify/bundle-records.json ] || return 0
-    python3 -I - <<'EOF'
-import json
+    python3 -I - "$BUNDLE" <<'EOF'
+import json, sys
 recs = json.load(open(".specify/bundle-records.json")).get("bundles", [])
-print(next((b.get("version", "") for b in recs if b.get("bundle_id") == "whetstone"), ""))
+print(next((b.get("version", "") for b in recs if b.get("bundle_id") == sys.argv[1]), ""))
 EOF
 }
 CONFIG=.specify/extensions/whetstone-core/whetstone-core-config.yml
 OLD=$(installed)
 if [ "$OLD" = "$VERSION" ]; then
-    say "Whetstone $VERSION is already installed here."
+    say "$BUNDLE $VERSION is already installed here."
 elif [ -n "$OLD" ]; then
     # bundle install refuses an installed bundle; update keeps the config files.
-    say "Upgrading Whetstone $OLD to $VERSION."
-    specify bundle update whetstone
+    say "Upgrading $BUNDLE $OLD to $VERSION."
+    specify bundle update "$BUNDLE"
     NOW=$(installed)
-    [ "$NOW" = "$VERSION" ] || die "the catalog at $CATALOG gave Whetstone $NOW, not $VERSION; point --catalog at the $VERSION release"
+    [ "$NOW" = "$VERSION" ] || die "the catalog at $CATALOG gave $BUNDLE $NOW, not $VERSION; point --catalog at the $VERSION release"
 else
-    specify bundle install whetstone --version "$VERSION"
+    specify bundle install "$BUNDLE" --version "$VERSION"
 fi
 
 # 5. Working files stay out of git; no compiled Python under the install.
 touch .gitignore
 for line in '.review/' '.specify/workflows/runs/' '.specify/**/.cache/' '.specify/.*.lock' '__pycache__/'; do
+    [ "$PLAN" = 1 ] && [ "$line" = .review/ ] && continue
     grep -qxF -- "$line" .gitignore || printf '%s\n' "$line" >> .gitignore
 done
 for d in .specify .claude; do
     [ -d "$d" ] || continue
     find "$d" -name __pycache__ -type d -prune -exec rm -rf {} +
 done
+
+# Planning ends here: it has no clone, no base_ref and no harness.
+if [ "$PLAN" = 1 ]; then
+    say ""
+    say "Whetstone's planning ($BUNDLE $VERSION) is installed in $ROOT"
+    say ""
+    say "Next:"
+    say "  1. Vet and install the grill and critique Spec Kit extensions (extensions/whetstone-plan/README.md, Requirements)."
+    say "  2. Commit .specify/, .claude/ and .gitignore."
+    say "  3. In Claude Code, from $ROOT:  /speckit-whetstone-plan-scope #<issue>"
+    exit 0
+fi
 
 # 6. The clone, in a harness.
 if [ -n "$HARNESS" ]; then

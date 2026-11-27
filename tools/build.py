@@ -13,13 +13,15 @@ Writes (dist/ is emptied first):
   dist/<extension>-<version>.zip   one per extension, with LICENSE   (release assets)
   dist/<preset>-<version>.zip      one per preset, with LICENSE      (release assets)
   dist/<workflow>-<version>.yml    one per workflow                  (release assets)
-  dist/whetstone-<version>.zip     the bundle                        (release asset)
+  dist/<bundle>-<version>.zip      one per bundle directory          (release assets)
   catalog/extensions.json, catalog/presets.json, catalog/workflows.json, catalog/bundles.json   (commit)
 
 Each catalog entry carries its sha256. When an entry's version changes, the version it
 replaces moves into the entry's `releases`, so earlier releases stay installable.
-catalog/steps.json is maintained by hand; its decision pin must match bundle.yml.
-Every extension, preset, workflow and the bundle must carry the same version. Requires PyYAML.
+The bundles are bundle/ (whetstone, the review) and each bundle-*/ beside it (bundle-plan/: whetstone-planner,
+installed on its own). A bundle's id must not be a component's: their assets would share a name. Each extension, preset and workflow belongs to exactly one bundle, and every component and
+bundle carries the same version.
+catalog/steps.json is maintained by hand; its decision pin must match bundle.yml. Requires PyYAML.
 """
 import argparse, datetime, hashlib, json, shutil, subprocess, sys, zipfile
 from pathlib import Path
@@ -74,12 +76,19 @@ def main():
     a = ap.parse_args()
     assets, cat = a.assets_url.rstrip("/"), a.catalog_url.rstrip("/")
 
-    bundle = yaml.safe_load((ROOT / "bundle/bundle.yml").read_text())
-    b = bundle["bundle"]
-    version = str(b["version"])
-    pinned = {(k, c["id"]): str(c["version"]) for k in ("extensions", "presets", "workflows", "steps")
-              for c in bundle["provides"].get(k, [])}
-    errors = []
+    bundle_dirs = [ROOT / "bundle"] + sorted(d for d in ROOT.glob("bundle-*") if (d / "bundle.yml").is_file())
+    bundles = [(d, yaml.safe_load((d / "bundle.yml").read_text())) for d in bundle_dirs]
+    version = str(bundles[0][1]["bundle"]["version"])
+    errors = [f"bundle {doc['bundle']['id']} {doc['bundle']['version']}: bundle is {version}"
+              for _, doc in bundles if str(doc["bundle"]["version"]) != version]
+    pinned, owner = {}, {}
+    for _, doc in bundles:
+        for k in ("extensions", "presets", "workflows", "steps"):
+            for c in doc["provides"].get(k, []):
+                key = (k, c["id"])
+                if key in owner and k != "steps":
+                    errors.append(f"{k[:-1]} {c['id']} is in both {owner[key]['id']} and {doc['bundle']['id']}")
+                pinned[key], owner[key] = str(c["version"]), doc["bundle"]
     steps = load("steps.json", "steps")
     for (kind, cid), v in pinned.items():
         if kind == "steps" and steps.get(cid, {}).get("version") != v:
@@ -136,7 +145,8 @@ def main():
         wf_cat["workflows"][w["id"]] = merge(old_wf, {
             "id": w["id"], "name": w["name"], "description": w["description"], "author": w.get("author", ""),
             "version": str(w["version"]), "url": f"{assets}/{name}", "sha256": sha256(dist / name),
-            "requires": doc.get("requires", {}), "license": b.get("license", "")}, "url")
+            "requires": doc.get("requires", {}),
+            "license": owner.get(("workflows", w["id"]), {}).get("license", "")}, "url")
 
     built = {"extensions": ext_cat["extensions"], "presets": pre_cat["presets"], "workflows": wf_cat["workflows"]}
     missing = {k for k in pinned if k[0] != "steps" and k[1] not in built[k[0]]}
@@ -144,19 +154,24 @@ def main():
     if errors:
         sys.exit("cannot build:\n  " + "\n  ".join(errors))
 
-    r = subprocess.run([a.specify, "bundle", "build", "--path", str(ROOT / "bundle"), "--output", str(dist)],
-                       capture_output=True, text=True)
-    bundle_zip = dist / f"{b['id']}-{version}.zip"
-    if r.returncode != 0 or not bundle_zip.exists():
-        sys.exit(f"specify bundle build failed:\n{r.stdout}{r.stderr}")
     old_b = load("bundles.json", "bundles")
-    counts = {k: len(bundle["provides"].get(k, [])) for k in ("extensions", "presets", "steps", "workflows")}
-    b_cat = {"schema_version": "1.0", "updated_at": now, "bundles": {b["id"]: merge(old_b, {
-        "id": b["id"], "name": b["name"], "version": version, "role": b.get("role", "developer"),
-        "description": b["description"], "author": b.get("author", ""), "license": b.get("license", ""),
-        "download_url": f"{assets}/{bundle_zip.name}", "sha256": sha256(bundle_zip),
-        "requires": {"speckit_version": bundle["requires"]["speckit_version"]}, "provides": counts,
-        "tags": bundle.get("tags", []), "verified": False}, "download_url")}}
+    b_cat = {"schema_version": "1.0", "updated_at": now, "bundles": {}}
+    for d, bundle in bundles:
+        b = bundle["bundle"]
+        bundle_zip = dist / f"{b['id']}-{version}.zip"
+        if bundle_zip.exists():
+            sys.exit(f"bundle {b['id']} would overwrite {bundle_zip.name}, another component's asset: rename the bundle")
+        r = subprocess.run([a.specify, "bundle", "build", "--path", str(d), "--output", str(dist)],
+                           capture_output=True, text=True)
+        if r.returncode != 0 or not bundle_zip.exists():
+            sys.exit(f"specify bundle build failed for {d.name}:\n{r.stdout}{r.stderr}")
+        counts = {k: len(bundle["provides"].get(k, [])) for k in ("extensions", "presets", "steps", "workflows")}
+        b_cat["bundles"][b["id"]] = merge(old_b, {
+            "id": b["id"], "name": b["name"], "version": version, "role": b.get("role", "developer"),
+            "description": b["description"], "author": b.get("author", ""), "license": b.get("license", ""),
+            "download_url": f"{assets}/{bundle_zip.name}", "sha256": sha256(bundle_zip),
+            "requires": {"speckit_version": bundle["requires"]["speckit_version"]}, "provides": counts,
+            "tags": bundle.get("tags", []), "verified": False}, "download_url")
 
     (CAT / "extensions.json").write_text(json.dumps(ext_cat, indent=1) + "\n")
     (CAT / "presets.json").write_text(json.dumps(pre_cat, indent=1) + "\n")
@@ -164,7 +179,7 @@ def main():
     (CAT / "bundles.json").write_text(json.dumps(b_cat, indent=1) + "\n")
     print(f"built {version}: {len(ext_cat['extensions'])} extensions, {len(pre_cat['presets'])} presets, "
           f"{len(wf_cat['workflows'])} workflows, "
-          f"bundle {bundle_zip.name} -> dist/; catalogs -> catalog/")
+          f"bundles {', '.join(sorted(b_cat['bundles']))} -> dist/; catalogs -> catalog/")
 
 
 if __name__ == "__main__":

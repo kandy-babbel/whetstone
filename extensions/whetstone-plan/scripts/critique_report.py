@@ -7,7 +7,7 @@
 A re-scoped spec folder keeps earlier runs' reports, and report names are not guaranteed to sort by
 run, so the newest name is not evidence of this run's report. The baseline is a file in the run's own
 folder under `.specify/workflows/runs/`: anywhere else under `.specify/` it would be a stray file that
-stops the next Whetstone review.
+stops the next Whetstone review, where the review is installed too.
 """
 import json
 import sys
