@@ -2,7 +2,7 @@ schema_version: '1.0'
 workflow:
   id: whetstone-canary
   name: 'Whetstone: lockdown canary'
-  version: 0.6.0
+  version: 0.6.1
   author: Kirill Andriychuk
   description: Run an agent that tries to write the repository and the other protected paths; fail unless every write fails
 requires:

@@ -168,7 +168,7 @@ G=https://raw.githubusercontent.com/github/spec-kit/main                 # Spec 
 specify extension catalog add $G/extensions/catalog.json --name default --install-allowed --priority 2
 specify workflow catalog add $G/workflows/catalog.json --name default    # a project catalog hides them
 specify workflow step catalog add $G/workflows/step-catalog.json --name default
-specify bundle install whetstone --version 0.6.0
+specify bundle install whetstone --version 0.6.1
 ```
 
 Then add to `.gitignore` (and `repo/` in a harness):
@@ -378,14 +378,14 @@ Not covered:
 2. Build:
    ```bash
    python3 tools/build.py \
-     --assets-url https://github.com/kandy-babbel/whetstone/releases/download/v0.6.0 \
+     --assets-url https://github.com/kandy-babbel/whetstone/releases/download/v0.6.1 \
      --catalog-url https://raw.githubusercontent.com/kandy-babbel/whetstone/main/catalog
    ```
    This empties `dist/`, then writes the extension zips (each with `LICENSE`), the
    workflow files and the bundle zip there. It also rewrites the catalogs in
    `catalog/` with each file's sha256. The version a catalog entry replaces moves to
    the entry's `releases`, so earlier versions stay installable with `--version`.
-3. Create release `v0.6.0` with every file in `dist/` as an asset.
+3. Create release `v0.6.1` with every file in `dist/` as an asset.
    Never change a release's assets after publishing. Spec Kit checks each download
    against the catalog's sha256 and caches catalogs for an hour, so a changed file
    fails to install. Fix by releasing a new version.

@@ -112,6 +112,31 @@ It needs the lockdown (repository README) and a `HEAD` commit. With no change it
 records no claims. A module run on its own needs a `.review/` that no full run owns:
 remove `.review/` first if a `whetstone` run left one.
 
+## How many agents run at once
+
+Readers run 8 at a time and judges 16 at a time. Each is its own Claude Code
+process with its own sandbox, and the judges are where a large change spends its
+time: one per K1 or K9 claim. The numbers are the `max_concurrency` of the two
+fan-outs in `.specify/workflows/whetstone-claim-check/workflow.yml`:
+
+```yaml
+- id: claims_read
+  type: fan-out
+  max_concurrency: 8
+- id: claims_judge
+  type: fan-out
+  max_concurrency: 16
+```
+
+Edit them there and commit, since a run refuses to start while `.specify/` differs
+from `HEAD`. Each must be a literal number: Spec Kit does not evaluate a template in
+that field. A reinstall or upgrade brings back these defaults.
+
+The limit that matters is the account's rate limit, not the machine. A judge
+refused by a rate limit fails like any other judge: its claim goes to the gate as
+unjudged, never as correct. If a run shows many unjudged claims with a rate-limit
+error in the run state, lower the number.
+
 ## Left out from the source
 
 The source is a commit gate with records kept across commits. Whetstone keeps the

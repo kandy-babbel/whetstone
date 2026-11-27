@@ -1,17 +1,17 @@
 {
  "schema_version": "1.0",
- "updated_at": "2026-11-25T09:45:04Z",
+ "updated_at": "2026-11-27T08:05:40Z",
  "bundles": {
   "whetstone": {
    "id": "whetstone",
    "name": "Whetstone",
-   "version": "0.6.0",
+   "version": "0.6.1",
    "role": "developer",
    "description": "Review a change with pr-review-toolkit, drop bikeshedding, size each fix, and check every claim its text makes; a report for the person or agent who fixes it. Reads the repository only.",
    "author": "Kirill Andriychuk",
    "license": "MIT",
-   "download_url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.6.0/whetstone-0.6.0.zip",
-   "sha256": "fdedda70453134a4ce9eb6124f2d1999aed29c2e205a16ed99c788202e7bdfae",
+   "download_url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.6.1/whetstone-0.6.1.zip",
+   "sha256": "6d084789dab4fc7b888a480885a6faabdb48b82003dc7cfbdf6f2a3a7fd56fe4",
    "requires": {
     "speckit_version": ">=1.3.3"
    },
@@ -45,6 +45,13 @@
     "0.5.0": {
      "download_url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.5.0/whetstone-0.5.0.zip",
      "sha256": "49602b44543da935b6f177b197da8f16c12b7c17d7b774f450a5160f9cd7b751",
+     "requires": {
+      "speckit_version": ">=1.3.3"
+     }
+    },
+    "0.6.0": {
+     "download_url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.6.0/whetstone-0.6.0.zip",
+     "sha256": "fdedda70453134a4ce9eb6124f2d1999aed29c2e205a16ed99c788202e7bdfae",
      "requires": {
       "speckit_version": ">=1.3.3"
      }

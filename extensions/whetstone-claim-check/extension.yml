@@ -2,7 +2,7 @@ schema_version: '1.0'
 extension:
   id: whetstone-claim-check
   name: 'Whetstone: claim check'
-  version: 0.6.0
+  version: 0.6.1
   description: Quotes every claim the text of a change makes and has a judge try to break each claim about the
     repo's own code or about what a test checks. Reads only.
   author: Kirill Andriychuk

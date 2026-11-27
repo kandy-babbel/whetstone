@@ -2,7 +2,7 @@ schema_version: '1.0'
 workflow:
   id: whetstone-claim-check
   name: 'Whetstone: claim check'
-  version: 0.6.0
+  version: 0.6.1
   author: Kirill Andriychuk
   description: Quote the claims in the text of the change and judge each K1/K9 claim against the tree the change leaves; write .review/current/claim-check.json. Reads the repository only.
 requires:
@@ -19,7 +19,7 @@ steps:
 - id: claims_read
   type: fan-out
   items: '{{ steps.claims_prepare.output.data.batches }}'
-  max_concurrency: 4
+  max_concurrency: 8
   step:
     id: read_one
     type: workflow
@@ -37,7 +37,7 @@ steps:
 - id: claims_judge
   type: fan-out
   items: '{{ steps.claims_accept.output.data.judge }}'
-  max_concurrency: 4
+  max_concurrency: 16
   step:
     id: judge_one
     type: workflow

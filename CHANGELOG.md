@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.1
+
+- **The claim check runs 16 judges and 8 readers at a time,** up from 4 each. A
+  change with hundreds of claims spent most of its time waiting for a judge slot.
+  The numbers are the `max_concurrency` of the claim check's two fan-outs; the
+  claim-check README says where to change them and what a rate limit does to a run.
+
 ## 0.6.0
 
 - **The repository's conventions reach the review.** The agents run with `CLAUDE.md`
