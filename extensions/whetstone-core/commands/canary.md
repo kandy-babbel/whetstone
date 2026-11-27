@@ -1,5 +1,5 @@
 ---
-description: "Run the lockdown canary: show that commands an agent runs cannot write the repository"
+description: "Internal step of a Whetstone run; do not run it directly (to review a change, use speckit-whetstone-core-review). Run the lockdown canary: show that commands an agent runs cannot write the repository"
 ---
 
 # Lockdown canary

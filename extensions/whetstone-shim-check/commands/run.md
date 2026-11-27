@@ -1,5 +1,5 @@
 ---
-description: "Decide the size of each fix: shim-check.json for the actionable findings"
+description: "Internal step of a Whetstone run; do not run it directly (to review a change, use speckit-whetstone-core-review). Decide the size of each fix: shim-check.json for the actionable findings"
 ---
 
 # Shim check: patch or class fix for each actionable finding

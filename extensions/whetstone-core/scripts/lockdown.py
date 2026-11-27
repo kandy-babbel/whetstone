@@ -197,3 +197,12 @@ def clean_text(text, cap: int = 240) -> str:
                    for ch in str(text))
     kept = " ".join(kept.split())
     return kept if len(kept) <= cap else kept[:cap - 1] + "…"
+
+
+if __name__ == "__main__":
+    # `python3 -I -B lockdown.py flags` prints the value of SPECKIT_INTEGRATION_CLAUDE_EXTRA_ARGS, for a shell or an
+    # agent that cannot paste the README's line (an agent's shell refuses JSON in a heredoc).
+    import sys
+    if sys.argv[1:] != ["flags"]:
+        sys.exit("usage: python3 -I -B lockdown.py flags")
+    print(EXTRA_ARGS)

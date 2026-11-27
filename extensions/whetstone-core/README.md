@@ -43,6 +43,17 @@ environment variable `WHETSTONE_RUN_ID` set to `{{ context.run_id }}`.
 | `report` | validates the shim check and the claim check (if present), records follow-ups, WRONG claims, UNSURE notes, unread files and unjudged claims in the ledger, writes `.review/report.json` (with the conventions the review was given), and says whether a person must look (`needs_human`, with the gate's `message`) |
 | `finish` | records the gate's answer (`WHETSTONE_GATE`) in the ledger and the report |
 
+`python3 -I -B .specify/extensions/whetstone-core/scripts/lockdown.py flags` prints the
+value of `SPECKIT_INTEGRATION_CLAUDE_EXTRA_ARGS` the run requires. An agent uses it in
+place of the README's line, whose JSON in a heredoc its shell refuses.
+
+### Agent commands
+
+| Command | Skill | Does |
+|---|---|---|
+| `speckit.whetstone-core.review` | `speckit-whetstone-core-review` | for a person's coding agent: checks out the branch (in a harness), checks the install, runs `specify workflow run whetstone` locked down, and reports from `.review/report.json`; never answers the gate |
+| `speckit.whetstone-core.canary` | `speckit-whetstone-core-canary` | internal: the lockdown canary's agent; not to be run directly |
+
 Every step that touches `.review/` checks that it belongs to the run that set it
 up (`.review/run-id`), so resuming an old run after a newer one cannot mix their
 files.

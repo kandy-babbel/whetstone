@@ -1,5 +1,5 @@
 ---
-description: "Try to break one claim and rule it CORRECT, WRONG or UNSURE, with path:line evidence"
+description: "Internal step of a Whetstone run; do not run it directly (to review a change, use speckit-whetstone-core-review). Try to break one claim and rule it CORRECT, WRONG or UNSURE, with path:line evidence"
 ---
 
 # Claim check: judge one claim

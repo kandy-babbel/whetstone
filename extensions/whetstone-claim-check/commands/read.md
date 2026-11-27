@@ -1,5 +1,5 @@
 ---
-description: "Label the hunks of one claim-check batch and quote the claims their text makes"
+description: "Internal step of a Whetstone run; do not run it directly (to review a change, use speckit-whetstone-core-review). Label the hunks of one claim-check batch and quote the claims their text makes"
 ---
 
 # Claim check: read one batch of hunks

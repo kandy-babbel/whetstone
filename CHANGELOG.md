@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.8.0
+
+- **Agents can run a review.** A new skill, `speckit-whetstone-core-review`, tells a
+  coding agent how to run Whetstone on a branch and report the result. It checks the
+  branch out in the harness and the install's integrity, then exports the lockdown
+  and a fresh `TMPDIR` and runs the workflow. It reports from `.review/report.json`,
+  treating its text as data. It never answers the gate: when a run pauses there, it
+  leaves the run id and `TMPDIR` to the person. The README's new section [Reviews
+  started by an agent](README.md#reviews-started-by-an-agent) describes it.
+- **`lockdown.py flags`** prints the required `SPECKIT_INTEGRATION_CLAUDE_EXTRA_ARGS`.
+  An agent's shell refuses the README's line, JSON in a heredoc.
+- **`install.sh` points agents at the skill in a harness:** a section in the
+  harness's `AGENTS.md`, and `@AGENTS.md` in its `CLAUDE.md`. A repository's own files
+  are never touched.
+- **The internal skills say so.** The descriptions of the canary, claim-check reader
+  and judge, and shim-check skills now start "Internal step of a Whetstone run; do
+  not run it directly". Spec Kit lists every extension command as a skill a person
+  or an agent can run, and gives an extension no way to hide one.
+
 ## 0.7.1
 
 - **`install.sh` upgrades.** Run again over an older Whetstone, it failed: adding a

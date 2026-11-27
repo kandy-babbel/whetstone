@@ -2,7 +2,7 @@ schema_version: '1.0'
 extension:
   id: whetstone-core
   name: 'Whetstone: core'
-  version: 0.7.1
+  version: 0.8.0
   description: Schemas for the modules' contracts and the deterministic checker that validates them, applies
     fallbacks for switched-off modules, takes the agents' answers from the run state, and writes the report.
   author: Kirill Andriychuk
@@ -22,7 +22,7 @@ provides:
     - python
   - name: lockdown
     file: scripts/lockdown.py
-    description: the agents' required flags, TMPDIR and integrity checks, pinned git, and text cleaning
+    description: the agents' required flags (`lockdown.py flags` prints them), TMPDIR and integrity checks, pinned git, and text cleaning
     runtimes:
     - python
   - name: runstate
@@ -43,7 +43,10 @@ provides:
   commands:
   - name: speckit.whetstone-core.canary
     file: commands/canary.md
-    description: Run the lockdown canary
+    description: 'Internal step of a Whetstone run; do not run it directly (to review a change, use speckit-whetstone-core-review). Run the lockdown canary'
+  - name: speckit.whetstone-core.review
+    file: commands/review.md
+    description: Review a branch or the current change with Whetstone, then report its findings and checked claims
 tags:
 - review
 - whetstone

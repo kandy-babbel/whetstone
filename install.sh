@@ -18,7 +18,7 @@
 # Read it before you run it.
 set -eu
 
-VERSION=0.7.1
+VERSION=0.8.0
 CATALOG=https://raw.githubusercontent.com/kandy-babbel/whetstone/main/catalog
 SPECKIT=https://raw.githubusercontent.com/github/spec-kit/main
 HARNESS=
@@ -213,6 +213,25 @@ if grep -q '^base_ref:' "$CONFIG"; then
     sed -i.bak "s|^base_ref:.*|base_ref: $BASE_REF|" "$CONFIG" && rm -f "$CONFIG.bak"
 else
     printf 'base_ref: %s\n' "$BASE_REF" >> "$CONFIG"
+fi
+
+# 7b. In a harness, point agents at the review skill. The harness is yours, so
+# AGENTS.md gets a short section and CLAUDE.md imports it (Claude Code reads only
+# CLAUDE.md). A repository's own AGENTS.md and CLAUDE.md are left alone. Neither
+# reaches Whetstone's agents: their flags exclude every CLAUDE.md.
+if [ -n "$HARNESS" ]; then
+    if ! grep -qs 'speckit-whetstone-core-review' AGENTS.md; then
+        [ -s AGENTS.md ] && printf '\n' >> AGENTS.md
+        cat >> AGENTS.md <<'EOF'
+## Code review with Whetstone
+
+This directory is a Whetstone harness around the clone in `repo/`. To review a
+branch of that repository, use the `speckit-whetstone-core-review` skill
+(`/speckit-whetstone-core-review <branch>`). The other `speckit-whetstone-*` skills
+are steps of a run: do not run them directly.
+EOF
+    fi
+    grep -qsxF '@AGENTS.md' CLAUDE.md || printf '@AGENTS.md\n' >> CLAUDE.md
 fi
 
 # 8. The commit, in a harness only.

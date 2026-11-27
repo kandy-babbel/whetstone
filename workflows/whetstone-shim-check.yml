@@ -2,7 +2,7 @@ schema_version: '1.0'
 workflow:
   id: whetstone-shim-check
   name: 'Whetstone: shim check'
-  version: 0.7.1
+  version: 0.8.0
   author: Kirill Andriychuk
   description: Decide the defect class, other occurrences and fix strategy of each actionable finding; write .review/current/shim-check.json. Reads the repository only.
 requires:

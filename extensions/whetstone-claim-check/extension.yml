@@ -2,7 +2,7 @@ schema_version: '1.0'
 extension:
   id: whetstone-claim-check
   name: 'Whetstone: claim check'
-  version: 0.7.1
+  version: 0.8.0
   description: Quotes every claim the text of a change makes and has a judge try to break each claim about the
     repo's own code or about what a test checks. Reads only.
   author: Kirill Andriychuk
@@ -19,10 +19,10 @@ provides:
   commands:
   - name: speckit.whetstone-claim-check.read
     file: commands/read.md
-    description: Label the hunks of one claim-check batch and quote the claims their text makes
+    description: 'Internal step of a Whetstone run; do not run it directly (to review a change, use speckit-whetstone-core-review). Label the hunks of one claim-check batch and quote the claims their text makes'
   - name: speckit.whetstone-claim-check.judge
     file: commands/judge.md
-    description: Try to break one claim and rule it CORRECT, WRONG or UNSURE, with path:line evidence
+    description: 'Internal step of a Whetstone run; do not run it directly (to review a change, use speckit-whetstone-core-review). Try to break one claim and rule it CORRECT, WRONG or UNSURE, with path:line evidence'
 tags:
 - review
 - whetstone

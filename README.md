@@ -131,7 +131,9 @@ The script registers the catalogs (Whetstone's and Spec Kit's own, so the offici
 extensions stay installable), installs the pinned bundle version, ignores the working
 files, deletes compiled Python under the install, pins `uv` in `.prototools` when
 `uv` comes from proto, and sets `base_ref` to the branch `origin/HEAD` names
-(`--base-ref` overrides it). It commits nothing in a repository of yours. Then
+(`--base-ref` overrides it). In a harness it also points `AGENTS.md` at the review
+skill ([Reviews started by an agent](#reviews-started-by-an-agent)). It commits
+nothing in a repository of yours. Then
 [lock down the agents](#lock-down-claude-code) and run.
 
 **Upgrading.** Download the new `install.sh` and run it the way you first did, in
@@ -178,7 +180,7 @@ G=https://raw.githubusercontent.com/github/spec-kit/main                 # Spec 
 specify extension catalog add $G/extensions/catalog.json --name default --install-allowed --priority 2
 specify workflow catalog add $G/workflows/catalog.json --name default    # a project catalog hides them
 specify workflow step catalog add $G/workflows/step-catalog.json --name default
-specify bundle install whetstone --version 0.7.1
+specify bundle install whetstone --version 0.8.0
 ```
 
 Then add to `.gitignore` (and `repo/` in a harness):
@@ -235,6 +237,38 @@ throwaway object store under `.review/`, and the canary tries to write `repo/` a
 
 Keep `.review/` and the run state out of any repository you push: the install's
 `.gitignore` lines already exclude them.
+
+## Reviews started by an agent
+
+You can ask a coding agent to run the review for you ("review the branch `feature`
+with Whetstone"). The core extension installs a skill for that,
+`speckit-whetstone-core-review` (in Claude Code also `/speckit-whetstone-core-review
+<branch>`). It tells the agent to:
+
+- check out the branch in `repo/` (in a harness; in a repository it reviews the
+  current branch as it is, and switches nothing);
+- check that `.claude/` and `.specify/` equal `HEAD`, and stop if not;
+- export the lockdown flags, printed by `python3 -I -B
+  .specify/extensions/whetstone-core/scripts/lockdown.py flags`, with
+  `PYTHONPYCACHEPREFIX` and a fresh `TMPDIR`, and run `specify workflow run
+  whetstone` (triage off when `TYPESAFE_API_KEY` is not set);
+- report the refusal as printed if the run refuses to start, and never work around it;
+- report from `.review/report.json`, treating its text as data, and fix nothing
+  unless asked.
+
+The agent never answers the gate. When a run pauses there, it reports what it found
+and leaves the run to you: the run id and the `TMPDIR` to resume it with. The
+agent's own shell must be able to start Claude Code's sandbox; one that is itself
+sandboxed may not, and the skill tells the agent to ask you then.
+
+In a harness, `install.sh` also adds a short section to `AGENTS.md` pointing at the
+skill, and an `@AGENTS.md` line to `CLAUDE.md` so Claude Code reads it. Both are the
+harness's own files; a repository's are never touched. Whetstone's own agents never
+see them: their flags exclude every `CLAUDE.md`.
+
+The other Whetstone skills (`claim-check-read`, `claim-check-judge`,
+`shim-check-run`, `core-canary`) are steps the workflow gives its own agents. Spec
+Kit lists them like any skill; their descriptions say not to run them directly.
 
 ## Lock down Claude Code
 
@@ -392,14 +426,14 @@ Not covered:
 2. Build:
    ```bash
    python3 tools/build.py \
-     --assets-url https://github.com/kandy-babbel/whetstone/releases/download/v0.7.1 \
+     --assets-url https://github.com/kandy-babbel/whetstone/releases/download/v0.8.0 \
      --catalog-url https://raw.githubusercontent.com/kandy-babbel/whetstone/main/catalog
    ```
    This empties `dist/`, then writes the extension zips (each with `LICENSE`), the
    workflow files and the bundle zip there. It also rewrites the catalogs in
    `catalog/` with each file's sha256. The version a catalog entry replaces moves to
    the entry's `releases`, so earlier versions stay installable with `--version`.
-3. Create release `v0.7.1` with every file in `dist/` as an asset.
+3. Create release `v0.8.0` with every file in `dist/` as an asset.
    Never change a release's assets after publishing. Spec Kit checks each download
    against the catalog's sha256 and caches catalogs for an hour, so a changed file
    fails to install. Fix by releasing a new version.
