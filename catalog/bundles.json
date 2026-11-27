@@ -1,17 +1,17 @@
 {
  "schema_version": "1.0",
- "updated_at": "2026-11-27T13:11:38Z",
+ "updated_at": "2026-11-27T15:53:10Z",
  "bundles": {
   "whetstone": {
    "id": "whetstone",
    "name": "Whetstone",
-   "version": "0.8.1",
+   "version": "0.9.0",
    "role": "developer",
    "description": "Review a change with pr-review-toolkit, drop bikeshedding, size each fix, and check every claim its text makes; a report for the person or agent who fixes it. Reads the repository only.",
    "author": "Kirill Andriychuk",
    "license": "MIT",
-   "download_url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.8.1/whetstone-0.8.1.zip",
-   "sha256": "d429afd89fc256aa7fe00ddfb15cf787acf1ee50367d1f85e85912c2e1fecd29",
+   "download_url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.9.0/whetstone-0.9.0.zip",
+   "sha256": "c05608d3946adfce75750ae266667d992d7b92cf0473da2865b9da3754fe719f",
    "requires": {
     "speckit_version": ">=1.3.3"
    },
@@ -83,8 +83,41 @@
      "requires": {
       "speckit_version": ">=1.3.3"
      }
+    },
+    "0.8.1": {
+     "download_url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.8.1/whetstone-0.8.1.zip",
+     "sha256": "d429afd89fc256aa7fe00ddfb15cf787acf1ee50367d1f85e85912c2e1fecd29",
+     "requires": {
+      "speckit_version": ">=1.3.3"
+     }
     }
    }
+  },
+  "whetstone-planner": {
+   "id": "whetstone-planner",
+   "name": "Whetstone: planner",
+   "version": "0.9.0",
+   "role": "developer",
+   "description": "Scope a GitHub issue in a spec folder before it is built, each Spec Kit step checked before the next (premise, specify, grill, plan, critique, tasks). Writes the spec folder only. Installs apart from the Whetstone review, in the repository you plan in.",
+   "author": "Kirill Andriychuk",
+   "license": "MIT",
+   "download_url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.9.0/whetstone-planner-0.9.0.zip",
+   "sha256": "3ac563195636f72bc3cc8b905b275a9573a399947db4493504ab7e764ee50580",
+   "requires": {
+    "speckit_version": ">=1.3.3"
+   },
+   "provides": {
+    "extensions": 1,
+    "presets": 1,
+    "steps": 0,
+    "workflows": 1
+   },
+   "tags": [
+    "planning",
+    "workflow",
+    "claude"
+   ],
+   "verified": false
   }
  }
 }

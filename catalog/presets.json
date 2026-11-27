@@ -1,0 +1,28 @@
+{
+ "schema_version": "1.0",
+ "updated_at": "2026-11-27T15:53:10Z",
+ "catalog_url": "https://raw.githubusercontent.com/kandy-babbel/whetstone/main/catalog/presets.json",
+ "presets": {
+  "whetstone-settled-design": {
+   "id": "whetstone-settled-design",
+   "name": "Whetstone: settled design",
+   "description": "spec.md has a section for the premise answers and one for the root cause; plan.md lists its mechanisms, each citing a research.md decision that has an Existing tools field. The whetstone-plan workflow checks all three.",
+   "author": "Kirill Andriychuk",
+   "repository": "https://github.com/kandy-babbel/whetstone",
+   "version": "0.9.0",
+   "download_url": "https://github.com/kandy-babbel/whetstone/releases/download/v0.9.0/whetstone-settled-design-0.9.0.zip",
+   "sha256": "4e98c6a17ecea01ca3863fdf63af36472fcf13967877b386451cbb8b3bb9002d",
+   "license": "MIT",
+   "requires": {
+    "speckit_version": ">=1.3.3"
+   },
+   "provides": {
+    "templates": 2,
+    "commands": 2
+   },
+   "tags": [
+    "whetstone"
+   ]
+  }
+ }
+}
