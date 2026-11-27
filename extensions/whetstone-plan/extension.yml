@@ -1,0 +1,53 @@
+schema_version: '1.0'
+extension:
+  id: whetstone-plan
+  name: 'Whetstone: plan'
+  version: 0.9.0
+  description: Scopes a GitHub issue in a spec folder before it is built (premise, specify, grill, plan, critique,
+    tasks), each step gated by a check. Writes the spec folder only; commits, pushes and posts nothing.
+  author: Kirill Andriychuk
+  license: MIT
+requires:
+  speckit_version: '>=1.3.3'
+provides:
+  scripts:
+  - name: drive
+    file: scripts/drive.py
+    description: start or resume the whetstone-plan workflow and report where the run stands
+    runtimes: &id001
+    - python
+  - name: preflight
+    file: scripts/preflight.py
+    description: the run's first step; refuses a harness and missing grill or critique extensions
+    runtimes: *id001
+  - name: spec-folder
+    file: scripts/spec_folder.py
+    description: the run's one spec folder, specs/<issue>-<short-name>, checked before and after specify
+    runtimes: *id001
+  - name: premise-report
+    file: scripts/premise_report.py
+    description: the premise form, its check, and the premise answers in spec.md
+    runtimes: *id001
+  - name: no-spec
+    file: scripts/no_spec.py
+    description: the spec.md a no-spec-needed pick leaves
+    runtimes: *id001
+  - name: rootcause
+    file: scripts/rootcause.py
+    description: checks spec.md's root cause section
+    runtimes: *id001
+  - name: settled-design
+    file: scripts/settled_design.py
+    description: checks that each mechanism in plan.md cites a complete research.md decision
+    runtimes: *id001
+  - name: critique-report
+    file: scripts/critique_report.py
+    description: finds the one critique report a run wrote
+    runtimes: *id001
+  commands:
+  - name: speckit.whetstone-plan.scope
+    file: commands/scope.md
+    description: Scope or re-scope a GitHub issue in a spec folder before it is built, with the whetstone-plan workflow
+tags:
+- planning
+- whetstone

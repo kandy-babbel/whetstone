@@ -9,10 +9,17 @@ reads a repository and reports:
 - which claims the change's comments, docs and test names make about the code, and
   which of those claims are wrong.
 
-Whetstone **changes nothing**: it never edits the repository, runs its tests or
+A review **changes nothing**: it never edits the repository, runs its tests or
 commits. The report in `.review/report.json` is for the person, or the separate agent,
 who fixes the change; run Whetstone again on the result. That split is what makes the
 lockdown below hold: the agents that judge a change can only read it.
+
+Whetstone can also sharpen a change before it is written. **Planning** scopes a GitHub
+issue in a spec folder: it asks first whether the issue is worth a spec at all, then
+runs Spec Kit's specify, grill, plan, critique and tasks with a check between each
+step and the next ([Scope an issue before it is built](#scope-an-issue-before-it-is-built)).
+Planning writes the spec folder, and only that; it runs in a repository, never in a
+harness, and outside the review lockdown.
 
 It runs in one of two layouts:
 - **in a repository**: Whetstone is installed and committed in the repository it
@@ -73,6 +80,9 @@ keeps the answer in the run state, and Whetstone's own steps take it from there.
   git are included. Triage needs
   `TYPESAFE_API_KEY`; without it the run stops before the review starts. Run with
   `--input triage=false` to keep code from going to api.typesafe.ai.
+- **Planning:** the skill reads the issue with your own `gh`; the planning agents run
+  in Claude Code and read the issue and the repository. No step of the planning
+  workflow reaches GitHub or another service.
 
 ## Components
 
@@ -84,6 +94,8 @@ keeps the answer in the run state, and Whetstone's own steps take it from there.
 | `whetstone-shim-check` | extension + workflow | [patch or class fix](extensions/whetstone-shim-check/README.md) |
 | `whetstone-claim-check` | extension + workflows | [claims checked against the code](extensions/whetstone-claim-check/README.md); `whetstone-claim-read` and `whetstone-claim-judge` run one reader or judge each |
 | `whetstone-canary` | workflow | the lockdown canary ([lockdown](#lock-down-claude-code)) |
+| `whetstone-plan` | extension + workflow | [scope an issue in a spec folder](extensions/whetstone-plan/README.md) |
+| `whetstone-settled-design` | preset | the spec and plan sections `whetstone-plan` checks ([its README](extensions/whetstone-plan/README.md#the-settled-design-preset)) |
 | `whetstone` | workflow | composes the modules ([bundle README](bundle/README.md)) |
 | `decision` 0.9.0 | workflow step | community step, [markuswondrak/spec-kit-decision-step](https://github.com/markuswondrak/spec-kit-decision-step) |
 
@@ -174,13 +186,15 @@ specify init --here --integration claude --script sh      # if not a Spec Kit pr
 C=https://raw.githubusercontent.com/kandy-babbel/whetstone/main/catalog
 specify bundle catalog add $C/bundles.json --id whetstone
 specify extension catalog add $C/extensions.json --name whetstone --install-allowed --priority 1
+specify preset catalog add $C/presets.json --name whetstone --install-allowed --priority 1
 specify workflow catalog add $C/workflows.json --name whetstone
 specify workflow step catalog add $C/steps.json --name whetstone
 G=https://raw.githubusercontent.com/github/spec-kit/main                 # Spec Kit's own catalogs back:
 specify extension catalog add $G/extensions/catalog.json --name default --install-allowed --priority 2
+specify preset catalog add $G/presets/catalog.json --name default --install-allowed --priority 2
 specify workflow catalog add $G/workflows/catalog.json --name default    # a project catalog hides them
 specify workflow step catalog add $G/workflows/step-catalog.json --name default
-specify bundle install whetstone --version 0.8.1
+specify bundle install whetstone --version 0.9.0
 ```
 
 Then add to `.gitignore` (and `repo/` in a harness):
@@ -270,6 +284,32 @@ see them: their flags exclude every `CLAUDE.md`.
 The other Whetstone skills (`claim-check-read`, `claim-check-judge`,
 `shim-check-run`, `core-canary`) are steps the workflow gives its own agents. Spec
 Kit lists them like any skill; their descriptions say not to run them directly.
+
+## Scope an issue before it is built
+
+Planning runs in a repository with Whetstone installed in it, from your own Claude
+Code session, on the branch you want the spec on:
+
+```
+/speckit-whetstone-plan-scope #123
+```
+
+It asks you first whether the issue is worth a spec (the premise), and ends there
+when you pick `not worth doing` or `no spec needed`. Otherwise it writes
+`specs/123-<short-name>/` with Spec Kit's specify, grills you on it, plans it,
+critiques it and breaks it into tasks. Each step is checked before the next one
+starts. Nothing is committed, pushed or posted: you review the spec folder and commit
+it.
+
+It needs two Spec Kit community extensions that you vet and install yourself, `grill`
+and `critique`; the run stops at its first step until they are there. The
+[whetstone-plan README](extensions/whetstone-plan/README.md) gives the steps, the
+requirements and what a run leaves behind.
+
+Planning agents write the spec folder, so **they do not run under the lockdown
+below**. They get a short allow-list of tools in its place, which is not a sandbox:
+run planning where you work, and watch it. Planning never runs in a harness, whose
+point is that nothing is written into the repository.
 
 ## Lock down Claude Code
 
@@ -379,7 +419,7 @@ files, and needs no copy of them in the harness.
 ## What Whetstone guarantees, and what it does not
 
 Given a working directory whose `.claude/` and `.specify/` equal `HEAD`, a trusted
-shell, and the flags above, then during a run:
+shell, and the flags above, then during a review run:
 - the commands an agent runs cannot write the repository, its `.git`, your home
   directory, the scripts, the run state or the report;
 - the report describes exactly the tree Whetstone's own step recorded, and names the
@@ -422,23 +462,28 @@ Not covered:
 ## Release (maintainers)
 
 1. Set the same version in every `extensions/*/extension.yml`, every
-   `workflows/*.yml`, and in `bundle/bundle.yml`, both its own version and the
-   versions it pins.
-2. Build:
+   `presets/*/preset.yml`, every `workflows/*.yml`, and in `bundle/bundle.yml`, both
+   its own version and the versions it pins.
+2. Run the tests (they need `specify` and PyYAML; the end-to-end ones run the real
+   Spec Kit CLI with a stand-in `claude`, and take about two minutes):
+   ```bash
+   python3 -B -m unittest discover -s tests/plan -t tests/plan
+   ```
+3. Build:
    ```bash
    python3 tools/build.py \
-     --assets-url https://github.com/kandy-babbel/whetstone/releases/download/v0.8.1 \
+     --assets-url https://github.com/kandy-babbel/whetstone/releases/download/v0.9.0 \
      --catalog-url https://raw.githubusercontent.com/kandy-babbel/whetstone/main/catalog
    ```
-   This empties `dist/`, then writes the extension zips (each with `LICENSE`), the
-   workflow files and the bundle zip there. It also rewrites the catalogs in
+   This empties `dist/`, then writes the extension and preset zips (each with
+   `LICENSE`), the workflow files and the bundle zip there. It also rewrites the catalogs in
    `catalog/` with each file's sha256. The version a catalog entry replaces moves to
    the entry's `releases`, so earlier versions stay installable with `--version`.
-3. Create release `v0.8.1` with every file in `dist/` as an asset.
+4. Create release `v0.9.0` with every file in `dist/` as an asset.
    Never change a release's assets after publishing. Spec Kit checks each download
    against the catalog's sha256 and caches catalogs for an hour, so a changed file
    fails to install. Fix by releasing a new version.
-4. Commit `catalog/` and push. Repositories with the catalogs registered see the
+5. Commit `catalog/` and push. Repositories with the catalogs registered see the
    new version.
 
 `catalog/steps.json` is maintained by hand. It is a copy of the community catalog's
@@ -453,8 +498,10 @@ see Spec Kit's authentication guide (`~/.specify/auth.json`).
 ```
 install.sh                the installer, for a repository or a harness
 extensions/<id>/          one Spec Kit extension each (manifest, README, prompts, scripts)
-workflows/                the module workflows and whetstone
+presets/<id>/             one Spec Kit preset each (templates and command additions)
+workflows/                the module workflows, whetstone and whetstone-plan
 bundle/                   bundle manifest and README
 catalog/                  the catalogs Spec Kit reads (generated, except steps.json)
 tools/build.py            builds dist/ and catalog/
+tests/plan/               tests of whetstone-plan, its workflow and its preset
 ```

@@ -18,7 +18,7 @@
 # Read it before you run it.
 set -eu
 
-VERSION=0.8.1
+VERSION=0.9.0
 CATALOG=https://raw.githubusercontent.com/kandy-babbel/whetstone/main/catalog
 SPECKIT=https://raw.githubusercontent.com/github/spec-kit/main
 HARNESS=
@@ -117,8 +117,8 @@ fi
 
 # 4. Catalogs and the bundle.
 # A catalog already registered under our name is replaced when its URL differs,
-# and left alone when it is the same. Bundle and extension catalogs are removed by
-# name, workflow and step catalogs by their index in the list.
+# and left alone when it is the same. Bundle, extension and preset catalogs are
+# removed by name, workflow and step catalogs by their index in the list.
 catalog_url() {   # file key name -> "index url" of that entry, or nothing
     [ -f "$1" ] || return 0
     python3 -I - "$@" <<'EOF'
@@ -155,7 +155,7 @@ set_catalog() {   # kind file key name url -- add arguments
         was=${found#* }
         [ "$was" = "$url" ] && return 0
         case $kind in
-            bundle|extension) specify $kind catalog remove "$name" ;;
+            bundle|extension|preset) specify $kind catalog remove "$name" ;;
             workflow) specify workflow catalog remove "${found%% *}" ;;
             step) specify workflow step catalog remove "${found%% *}" ;;
         esac
@@ -171,10 +171,12 @@ set_catalog() {   # kind file key name url -- add arguments
 }
 set_catalog bundle .specify/bundle-catalogs.yml id whetstone "$CATALOG/bundles.json" -- --id whetstone
 set_catalog extension .specify/extension-catalogs.yml name whetstone "$CATALOG/extensions.json" -- --name whetstone --install-allowed --priority 1
+set_catalog preset .specify/preset-catalogs.yml name whetstone "$CATALOG/presets.json" -- --name whetstone --install-allowed --priority 1
 set_catalog workflow .specify/workflow-catalogs.yml name whetstone "$CATALOG/workflows.json" -- --name whetstone
 set_catalog step .specify/step-catalogs.yml name whetstone "$CATALOG/steps.json" -- --name whetstone
 if [ "$DEFAULTS" = 1 ]; then
     set_catalog extension .specify/extension-catalogs.yml name default "$SPECKIT/extensions/catalog.json" -- --name default --install-allowed --priority 2
+    set_catalog preset .specify/preset-catalogs.yml name default "$SPECKIT/presets/catalog.json" -- --name default --install-allowed --priority 2
     set_catalog workflow .specify/workflow-catalogs.yml name default "$SPECKIT/workflows/catalog.json" -- --name default
     set_catalog step .specify/step-catalogs.yml name default "$SPECKIT/workflows/step-catalog.json" -- --name default
 fi

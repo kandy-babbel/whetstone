@@ -2,7 +2,7 @@ schema_version: '1.0'
 extension:
   id: whetstone-review
   name: 'Whetstone: review'
-  version: 0.8.1
+  version: 0.9.0
   description: Instructions that turn a pr-review-toolkit review into findings.json (cc-review Finding
     format).
   author: Kirill Andriychuk

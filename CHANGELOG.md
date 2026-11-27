@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.9.0
+
+- **Whetstone plans.** A new extension, `whetstone-plan`, with its workflow and a
+  preset, `whetstone-settled-design`, scopes a GitHub issue in a spec folder before
+  it is built: `/speckit-whetstone-plan-scope #<issue>` (or `rescope <spec folder>
+  #<issue>`). The run first asks whether the issue is worth a spec at all (the
+  premise: six questions, each answered with its source, and your pick of `write the
+  spec`, `no spec needed` or `not worth doing`). Then it runs Spec Kit's specify,
+  grill, plan, critique and tasks, and a script checks each step's output before the
+  next starts: the premise answers and a traced root cause in `spec.md`, no open
+  clarification markers, and every mechanism in `plan.md` citing a `research.md`
+  decision that names the existing tools looked at. It writes the spec folder only:
+  nothing is committed, pushed or posted, and no step reaches GitHub. It runs in a
+  repository, not a harness, and outside the review lockdown. It needs the community
+  `grill` and `critique` extensions, which you vet and install yourself. See
+  [its README](extensions/whetstone-plan/README.md). Ported from Analitiq's
+  `planner` plugin, without its GitHub App, project-board and `codeworks` parts.
+- **The preset applies project-wide.** Like any Spec Kit preset,
+  `whetstone-settled-design` adds its sections to every `/speckit-specify` and
+  `/speckit-plan` in the project, not only to planning runs.
+- **`install.sh` registers a preset catalog,** `catalog/presets.json`, and puts Spec
+  Kit's own preset catalog back unless `--no-defaults` is given. `tools/build.py`
+  builds presets.
+- **Tests.** `tests/plan/` covers the planning checks, the skill's text and the
+  workflow, end to end against the real Spec Kit CLI with a stand-in `claude`.
+
 ## 0.8.1
 
 - **The claim check reuses its work across runs.** Its cache was meant to spare a
