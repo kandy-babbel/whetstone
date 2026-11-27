@@ -48,7 +48,8 @@ CONFIG = EXT / "whetstone-core-config.yml"
 BLOCKING = {"Critical", "Important"}
 CANARY_COMMAND = "speckit.whetstone-core.canary"
 LEDGER_KEYS = ("dismissed", "follow_ups", "warnings", "claims_wrong", "claim_notes", "unread", "unjudged", "gate")
-KEEP = {"previous", "archive", "pyc"}  # what stays at the top of .review/ when a new run starts
+CLAIM_CACHE = "claim-cache.json"  # the claim check's reads and reusable verdicts; whetstone-claim-check keeps it
+KEEP = {"previous", "archive", "pyc", CLAIM_CACHE}  # what stays at the top of .review/ when a new run starts
 
 
 def out(obj, code=0):
@@ -142,7 +143,9 @@ def slug(branch):
 def archive(branch):
     """A new run starts fresh. The earlier run's files move to .review/previous/<time>/. previous/ holds only runs
     of the branch under review: another branch's runs are kept under .review/archive/<branch>/ and come back when
-    that branch is reviewed again, so one branch's dismissals never silence findings on another."""
+    that branch is reviewed again, so one branch's dismissals never silence findings on another. The claim cache
+    stays at the top of .review/ between runs of one branch, and moves with that branch's runs, so a verdict is
+    reused only on the branch it was given on."""
     earlier = [p for p in R.iterdir() if p.name not in KEEP]
     was = recorded("branch") if (R / "branch").exists() else branch
     if earlier:
@@ -152,15 +155,23 @@ def archive(branch):
             shutil.move(str(p), str(dest / p.name))
     if was != branch:
         old, new = R / "archive" / slug(was), R / "archive" / slug(branch)
-        if (R / "previous").exists():
+        cache = R / CLAIM_CACHE
+        if (R / "previous").exists() or cache.exists():
             old.mkdir(parents=True, exist_ok=True)
+        if (R / "previous").exists():
             for p in (R / "previous").iterdir():
                 shutil.move(str(p), str(old / p.name))
             (R / "previous").rmdir()
+        if cache.exists():
+            shutil.move(str(cache), str(old / CLAIM_CACHE))
         if new.exists():
-            (R / "previous").mkdir()
-            for p in new.iterdir():
-                shutil.move(str(p), str(R / "previous" / p.name))
+            if (new / CLAIM_CACHE).exists():
+                shutil.move(str(new / CLAIM_CACHE), str(cache))
+            runs = list(new.iterdir())
+            if runs:
+                (R / "previous").mkdir()
+                for p in runs:
+                    shutil.move(str(p), str(R / "previous" / p.name))
             new.rmdir()
 
 

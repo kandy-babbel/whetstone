@@ -2,7 +2,7 @@ schema_version: '1.0'
 workflow:
   id: whetstone
   name: Whetstone
-  version: 0.8.0
+  version: 0.8.1
   author: Kirill Andriychuk
   description: Review a change with pr-review-toolkit, drop bikeshedding, size each fix, and check every claim its text makes; a report for the person or agent who fixes it. Reads the repository only.
 requires:

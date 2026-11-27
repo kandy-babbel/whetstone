@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.8.1
+
+- **The claim check reuses its work across runs.** Its cache was meant to spare a
+  later run the hunks it already read and the CORRECT verdicts whose cited files are
+  unchanged. But `setup` moved the cache into `.review/previous/` with the rest of
+  the earlier run, so every run since 0.4.0 started with an empty one and `reused`
+  was always 0. The cache now stays at the top of `.review/` between runs of one
+  branch, and moves with that branch's history to `.review/archive/<branch>/` and
+  back, so a verdict is reused only on the branch it was given on. Caches already
+  moved into `previous/` are not brought back.
+- **`install.sh` keeps a working catalog when the new one is refused.** Replacing a
+  catalog means removing the old one first (same name), so a URL Spec Kit refused
+  left the install with no catalog. `--catalog` must now be an `https://` URL, checked
+  before anything is touched, and when Spec Kit still refuses a catalog the one it
+  replaced is put back before the script stops.
+
 ## 0.8.0
 
 - **Agents can run a review.** A new skill, `speckit-whetstone-core-review`, tells a

@@ -18,7 +18,7 @@
 # Read it before you run it.
 set -eu
 
-VERSION=0.8.0
+VERSION=0.8.1
 CATALOG=https://raw.githubusercontent.com/kandy-babbel/whetstone/main/catalog
 SPECKIT=https://raw.githubusercontent.com/github/spec-kit/main
 HARNESS=
@@ -60,6 +60,15 @@ while [ $# -gt 0 ]; do
         --no-defaults) DEFAULTS=0; shift ;;
         -h|--help) usage; exit 0 ;;
         *) die "unknown argument: $1" ;;
+    esac
+done
+
+# 0. Spec Kit takes catalogs over HTTPS only, localhost included; refuse anything
+# else now, before a catalog is touched.
+for u in "$CATALOG" "$SPECKIT"; do
+    case $u in
+        https://?*) ;;
+        *) die "a catalog must be an https:// URL, not $u (Spec Kit refuses anything else)" ;;
     esac
 done
 
@@ -131,22 +140,34 @@ for i, e in enumerate(entries):
         break
 EOF
 }
+add_catalog() {   # kind url -- add arguments (own variable names: sh functions share variables with their caller)
+    ac_kind=$1 ac_url=$2; shift 3
+    case $ac_kind in
+        step) specify workflow step catalog add "$ac_url" "$@" ;;
+        *) specify $ac_kind catalog add "$ac_url" "$@" ;;
+    esac
+}
 set_catalog() {   # kind file key name url -- add arguments
     kind=$1 file=$2 key=$3 name=$4 url=$5; shift 6
     found=$(catalog_url "$file" "$key" "$name")
+    was=
     if [ -n "$found" ]; then
-        [ "${found#* }" = "$url" ] && return 0
+        was=${found#* }
+        [ "$was" = "$url" ] && return 0
         case $kind in
             bundle|extension) specify $kind catalog remove "$name" ;;
             workflow) specify workflow catalog remove "${found%% *}" ;;
             step) specify workflow step catalog remove "${found%% *}" ;;
         esac
-        say "replaced the $kind catalog '$name' (was ${found#* })"
     fi
-    case $kind in
-        step) specify workflow step catalog add "$url" "$@" ;;
-        *) specify $kind catalog add "$url" "$@" ;;
-    esac
+    # Spec Kit can only refuse a catalog once the old one is gone (same name): put the old one back then.
+    if ! add_catalog "$kind" "$url" -- "$@"; then
+        if [ -n "$was" ] && add_catalog "$kind" "$was" -- "$@"; then
+            die "Spec Kit refused the $kind catalog $url; the one it replaced ($was) is back in place"
+        fi
+        die "Spec Kit refused the $kind catalog $url${was:+, and the one it replaced ($was) could not be put back: add it again or run this again with a good --catalog}"
+    fi
+    [ -z "$was" ] || say "replaced the $kind catalog '$name' (was $was)"
 }
 set_catalog bundle .specify/bundle-catalogs.yml id whetstone "$CATALOG/bundles.json" -- --id whetstone
 set_catalog extension .specify/extension-catalogs.yml name whetstone "$CATALOG/extensions.json" -- --name whetstone --install-allowed --priority 1

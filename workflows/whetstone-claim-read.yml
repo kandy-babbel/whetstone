@@ -2,7 +2,7 @@ schema_version: '1.0'
 workflow:
   id: whetstone-claim-read
   name: 'Whetstone: claim check, one reader'
-  version: 0.8.0
+  version: 0.8.1
   author: Kirill Andriychuk
   description: One claim-check reader, for one batch of hunks; called per batch by whetstone-claim-check so that a reader's failure leaves its files unread instead of stopping the run
 requires:

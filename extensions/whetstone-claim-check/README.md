@@ -100,7 +100,10 @@ is checked.
     (`id`, `file`, `line`, `quote`, `reason`), and a `warning` when more than 20 claims
     were judged.
 - **Working files:** `.review/current/claims/` holds the prompts and the answers
-  taken; `.review/claim-cache.json` holds reads and reusable verdicts.
+  taken; `.review/claim-cache.json` holds reads and reusable verdicts. It stays
+  between runs of one branch, so a later run reuses a hunk's read while the hunk is
+  unchanged, and a CORRECT verdict while every file it cited is unchanged. It moves
+  with the branch's history to `.review/archive/<branch>/` and comes back with it.
 
 ## Use on its own
 

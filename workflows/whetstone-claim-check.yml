@@ -2,7 +2,7 @@ schema_version: '1.0'
 workflow:
   id: whetstone-claim-check
   name: 'Whetstone: claim check'
-  version: 0.8.0
+  version: 0.8.1
   author: Kirill Andriychuk
   description: Quote the claims in the text of the change and judge each K1/K9 claim against the tree the change leaves; write .review/current/claim-check.json. Reads the repository only.
 requires:
