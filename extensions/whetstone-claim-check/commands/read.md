@@ -20,6 +20,7 @@ the text around its hunk. The batch file says where the checkout is: your workin
 directory, or the clone in `repo/` next to `.review/` (then read files under
 `repo/` and run git as `git -C repo ...`).
 
-The repository is read-only for you; your draft goes under `$TMPDIR`. Your final
+The repository is read-only for you. Write your draft with the Write tool, under
+`$TMPDIR` (find it with `echo $TMPDIR`); the shell refuses JSON in a heredoc. Your final
 answer is the draft's content: one JSON document, no code fence, nothing else.
 Never run `git push`, `gh`, `curl` or anything that contacts a remote service.

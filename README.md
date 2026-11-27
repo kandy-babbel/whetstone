@@ -168,7 +168,7 @@ G=https://raw.githubusercontent.com/github/spec-kit/main                 # Spec 
 specify extension catalog add $G/extensions/catalog.json --name default --install-allowed --priority 2
 specify workflow catalog add $G/workflows/catalog.json --name default    # a project catalog hides them
 specify workflow step catalog add $G/workflows/step-catalog.json --name default
-specify bundle install whetstone --version 0.6.1
+specify bundle install whetstone --version 0.7.0
 ```
 
 Then add to `.gitignore` (and `repo/` in a harness):
@@ -237,7 +237,7 @@ run state, not the report.
 
 ```bash
 export SPECKIT_INTEGRATION_CLAUDE_EXTRA_ARGS=$(cat <<'EOF'
---permission-mode acceptEdits --no-session-persistence --strict-mcp-config --output-format json --settings '{"sandbox":{"enabled":true,"allowUnsandboxedCommands":false,"failIfUnavailable":true,"autoAllowBashIfSandboxed":true},"disableAllHooks":true,"claudeMdExcludes":["**/CLAUDE.md","**/CLAUDE.local.md"],"permissions":{"deny":["Edit(./**)"]}}'
+--permission-mode acceptEdits --no-session-persistence --strict-mcp-config --output-format json --settings '{"sandbox":{"enabled":true,"allowUnsandboxedCommands":false,"failIfUnavailable":true,"autoAllowBashIfSandboxed":true},"disableAllHooks":true,"claudeMdExcludes":["**/CLAUDE.md","**/CLAUDE.local.md"],"permissions":{"allow":["Edit(//tmp/whet.*/**)"],"deny":["Edit(./**)"]}}'
 EOF
 )
 export PYTHONPYCACHEPREFIX=$HOME/.cache/whetstone-pyc
@@ -253,7 +253,7 @@ requires each of them:
 | `sandbox.failIfUnavailable: true` | If the sandbox cannot start, the agent's commands fail instead of running unsandboxed. Without this setting they run unsandboxed, silently. |
 | `sandbox.autoAllowBashIfSandboxed: true` | A command runs without a permission prompt because the sandbox confines it. Since Claude Code 2.1.329, without this setting every command of a `claude -p` agent is refused for want of a prompt; the canary then stops the run. |
 | `permissions.deny: ["Edit(./**)"]` | The whole working directory. Inside the sandbox it is mounted read-only, so neither the agent's file tools nor any command it runs can write it; `.git`, `.specify`, `.claude`, `.review` and the clone under `repo/` included. It must be this exact pattern: `Edit(**)` does not make the sandbox mount anything read-only. |
-| `permissions.allow` | Empty. |
+| `permissions.allow: ["Edit(//tmp/whet.*/**)"]` | Exactly this, nothing else. The agents' file tools may write only in a run's `TMPDIR`, where the claim check's readers and judges draft their answers: the shell refuses JSON in a heredoc, so the Write tool is the only way to make a draft. Claude Code checks the rule at a path's real location: a link planted there that leads elsewhere, or into the working directory, is refused. |
 | `disableAllHooks: true` | A hook in the repository's `.claude/settings.json` would run outside the sandbox. |
 | `claudeMdExcludes` | A `CLAUDE.md` in the repository is not loaded as instructions: the change under review could have edited it. The repository's conventions reach the agents another way, see [The repository's conventions](#the-repositorys-conventions). |
 | `--strict-mcp-config` | A `.mcp.json` in the repository does not start a server outside the sandbox. |
@@ -261,10 +261,11 @@ requires each of them:
 | `--permission-mode acceptEdits` | Not `bypassPermissions` or `auto`, which Whetstone refuses. |
 | `PYTHONPYCACHEPREFIX` | Python keeps compiled files there, outside the working directory and `TMPDIR`, and never reads a `.pyc` planted next to a script. Whetstone's own steps also pass `-X pycache_prefix`. |
 
-Also required: **a fresh, short `TMPDIR` per run** (see [Run](bundle/README.md#run)).
-Agents can write their temporary directory, so each run gets its own, and nothing
-Whetstone's own steps do reads it. A long path (over 60 bytes) stops the run: the
-sandbox needs a short one.
+Also required: **a fresh `TMPDIR` per run, made with `mktemp -d /tmp/whet.XXXXXX`**
+(see [Run](bundle/README.md#run)). Agents can write their temporary directory, so
+each run gets its own, and nothing Whetstone's own steps do reads it. It must be a
+directory `/tmp/whet.*`, which is what the allow rule above covers, and short: the
+sandbox needs a path under 60 bytes.
 
 **This affects only the agents Whetstone starts.** Claude Code itself does not read
 the variable. Your own Claude Code sessions, in this repository or any other, are
@@ -299,8 +300,8 @@ files, and needs no copy of them in the harness.
 - `setup`, and a guard step before every agent step, check the variable: exactly one
   inline `--settings` with all of the above, the required flags, and no
   `--dangerously-skip-permissions`, `bypassPermissions` or `auto`;
-  `SPECKIT_INTEGRATION_CLAUDE_EXECUTABLE` unset; `TMPDIR` set and short (empty at
-  `setup`); `PYTHONPYCACHEPREFIX` set, outside the working directory and `TMPDIR`;
+  `SPECKIT_INTEGRATION_CLAUDE_EXECUTABLE` unset; `TMPDIR` a directory `/tmp/whet.*`,
+  not a link (empty at `setup`); `PYTHONPYCACHEPREFIX` set, outside the working directory and `TMPDIR`;
   `.claude/` and `.specify/` equal to `HEAD`, with no compiled Python; the repository
   under review where `setup` found it, with the same `HEAD`.
 - At the start of each run, the **canary** agent runs a script that tries to create a
@@ -366,7 +367,10 @@ Not covered:
   Whetstone's guards check again before every agent step that follows, but not the
   step being resumed itself.
 - **Agents' shared temporary directory.** Within a run, agents can read what earlier
-  agents left in `TMPDIR`. Nothing Whetstone's own steps do reads it.
+  agents left in `TMPDIR`. Their file tools can also write another run's
+  `/tmp/whet.*` directory owned by your user, since the allow rule names them all.
+  Nothing Whetstone's own steps do reads any of them, and every answer is checked
+  again by Whetstone's own steps, whatever a draft said.
 - **Network access** from inside the sandbox. In the tests on this project it was
   refused, but Whetstone does not require a setting that guarantees that.
 
@@ -378,14 +382,14 @@ Not covered:
 2. Build:
    ```bash
    python3 tools/build.py \
-     --assets-url https://github.com/kandy-babbel/whetstone/releases/download/v0.6.1 \
+     --assets-url https://github.com/kandy-babbel/whetstone/releases/download/v0.7.0 \
      --catalog-url https://raw.githubusercontent.com/kandy-babbel/whetstone/main/catalog
    ```
    This empties `dist/`, then writes the extension zips (each with `LICENSE`), the
    workflow files and the bundle zip there. It also rewrites the catalogs in
    `catalog/` with each file's sha256. The version a catalog entry replaces moves to
    the entry's `releases`, so earlier versions stay installable with `--version`.
-3. Create release `v0.6.1` with every file in `dist/` as an asset.
+3. Create release `v0.7.0` with every file in `dist/` as an asset.
    Never change a release's assets after publishing. Spec Kit checks each download
    against the catalog's sha256 and caches catalogs for an hour, so a changed file
    fails to install. Fix by releasing a new version.

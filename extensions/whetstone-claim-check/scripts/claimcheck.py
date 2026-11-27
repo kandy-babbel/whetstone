@@ -450,6 +450,13 @@ def broken(verdict: dict) -> dict:
 
 # --- prompts ---------------------------------------------------------------------------------------------
 
+# How an agent makes its draft. The shell refuses JSON in a heredoc (a brace next to a quote reads as expansion
+# obfuscation), and the agents' file tools may write only under TMPDIR (lockdown.REQUIRED_ALLOW).
+_DRAFT_HOW = ("Learn your temporary directory with `echo $TMPDIR`, then write your draft to `{name}` in it with the "
+              "Write tool, giving the full path. Do not write it with the shell: a heredoc holding JSON is refused. "
+              "Correct the draft with the Edit or Write tool.")
+
+
 def where(root: str) -> str:
     """Where the checkout is, as told to an agent whose cwd is the working directory."""
     if repo.harness():
@@ -471,7 +478,7 @@ def reader_prompt(root: str, batch: int, hunks: list[dict]) -> str:
             '{"batch": ' + str(batch) + ', "hunks": [{"id": "H1", "kind": "MIXED", "claims": '
             '[{"line": 12, "quote": "exact words from the file", "category": "K1"}]}]}\n\n'
             "List every hunk above exactly once. `line` is the line the quote starts on in the file as it is now. "
-            f"The repository is read-only for you. Write a draft to `$TMPDIR/read-{batch}.json` and run "
+            "The repository is read-only for you. " + _DRAFT_HOW.format(name=f"read-{batch}.json") + " Then run "
             f"`python3 {SELF} check-read {batch} $TMPDIR/read-{batch}.json`. It checks every quote against the file "
             "and every hunk against this batch. Correct the draft until it prints OK. Then reply with the draft's "
             "exact content as your final answer: the JSON alone, no code fence, nothing before or after it.")
@@ -496,7 +503,7 @@ def judge_prompt(root: str, claim: dict) -> str:
             '"assertions": [{"text": "one assertion", "confirmed": true, "evidence": "path/to/file.py:42"}], '
             '"failing_case": "for WRONG: the input or situation in which the claim is false", '
             '"gap": "for UNSURE: what you could not find or read"}\n\n'
-            f"The repository is read-only for you. Write a draft to `$TMPDIR/verdict-{cid}.json` and run "
+            "The repository is read-only for you. " + _DRAFT_HOW.format(name=f"verdict-{cid}.json") + " Then run "
             f"`python3 {SELF} check-verdict {cid} $TMPDIR/verdict-{cid}.json`. It checks every path:line against the "
             "checked tree. Correct the draft until it prints OK. Then reply with the draft's exact content as your "
             "final answer: the JSON alone, no code fence, nothing before or after it.")

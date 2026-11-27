@@ -16,7 +16,7 @@
 # the install. Read it before you run it.
 set -eu
 
-VERSION=0.6.1
+VERSION=0.7.0
 CATALOG=https://raw.githubusercontent.com/kandy-babbel/whetstone/main/catalog
 SPECKIT=https://raw.githubusercontent.com/github/spec-kit/main
 HARNESS=

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.7.0
+
+- **Readers and judges can write their drafts.** Each one drafts its answer in a file
+  under `TMPDIR` and runs a self-check on it. Under the lockdown it had no reliable
+  way to make that file: the Write tool needed a permission no one could grant, and
+  the shell refuses a heredoc holding JSON (a brace next to a quote). Agents that hit
+  both left their files unread or their claim unjudged. The lockdown now requires one
+  allow rule, `Edit(//tmp/whet.*/**)`, and a `TMPDIR` made with `mktemp -d
+  /tmp/whet.XXXXXX`; the prompts tell agents to draft with the Write tool. Claude
+  Code checks the rule at a path's real location, so a link planted in `TMPDIR`
+  cannot lead a write elsewhere. **Update the flags you export** from the README: a
+  run refuses the old ones and says what is missing.
+
 ## 0.6.1
 
 - **The claim check runs 16 judges and 8 readers at a time,** up from 4 each. A

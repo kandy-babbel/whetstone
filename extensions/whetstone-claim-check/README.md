@@ -42,9 +42,10 @@ rules for a reader's and a judge's answers are taken over as they are.
    yet.
 4. **settle** writes `.review/current/claim-check.json`.
 
-**Agents write nothing.** Each reader and judge drafts its answer under its own
-`TMPDIR`, runs the self-check on the draft, and gives the draft's content as its
-final answer. Spec Kit keeps that answer in the run state; `accept` and `settle`
+**Agents write nothing that is kept.** Each reader and judge writes a draft of its
+answer under its own `TMPDIR` with the Write tool (the lockdown's one allow rule; the
+shell refuses JSON in a heredoc), runs the self-check on the draft, and gives the
+draft's content as its final answer. Spec Kit keeps that answer in the run state; `accept` and `settle`
 take it from there (whetstone-core's `runstate.py`).
 
 **A failed agent never counts as correct.** A reader that does not answer, or whose

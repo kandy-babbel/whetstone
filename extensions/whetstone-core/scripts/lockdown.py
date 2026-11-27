@@ -9,7 +9,7 @@ through `clean_text`. Standard library only, so the claim check can import it un
 """
 from __future__ import annotations
 
-import json, os, shlex, subprocess, unicodedata
+import json, os, re, shlex, subprocess, unicodedata
 from pathlib import Path
 
 ENV = "SPECKIT_INTEGRATION_CLAUDE_EXTRA_ARGS"
@@ -17,6 +17,11 @@ EXECUTABLE_ENV = "SPECKIT_INTEGRATION_CLAUDE_EXECUTABLE"
 TMPDIR_MAX = 60  # bytes; the sandbox puts a unix socket under TMPDIR, and a socket path is limited to 108 bytes
 PROTECTED = (".claude", ".specify")  # what agents are launched from; must equal HEAD when a run starts
 REQUIRED_DENY = "Edit(./**)"  # the whole working directory; `Edit(**)` does not make the sandbox mount it read-only
+# The one place the agents' file tools may write: the run's TMPDIR, where readers and judges draft their answers for
+# the self-check. The shell refuses JSON in a heredoc (a brace next to a quote), so the Write tool is the only way to
+# make a draft. Claude Code checks the rule at a path's real location, so a link planted there cannot lead elsewhere.
+REQUIRED_ALLOW = "Edit(//tmp/whet.*/**)"
+TMPDIR_PATTERN = re.compile(r"/tmp/whet\.[^/]+/?")  # what REQUIRED_ALLOW covers: mktemp -d /tmp/whet.XXXXXX
 REQUIRED_CLAUDE_MD_EXCLUDES = ("**/CLAUDE.md", "**/CLAUDE.local.md")
 REQUIRED_FLAGS = ("--strict-mcp-config",)
 FORBIDDEN_FLAGS = ("--dangerously-skip-permissions", "--allow-dangerously-skip-permissions", "--dangerously-disable-sandbox")
@@ -27,7 +32,7 @@ PYC_ENV = "PYTHONPYCACHEPREFIX"  # where Python keeps compiled files: never insi
 SETTINGS = {"sandbox": {"enabled": True, "allowUnsandboxedCommands": False, "failIfUnavailable": True,
                         "autoAllowBashIfSandboxed": True},
             "disableAllHooks": True, "claudeMdExcludes": list(REQUIRED_CLAUDE_MD_EXCLUDES),
-            "permissions": {"deny": [REQUIRED_DENY]}}
+            "permissions": {"allow": [REQUIRED_ALLOW], "deny": [REQUIRED_DENY]}}
 SETTINGS_JSON = json.dumps(SETTINGS, separators=(",", ":"))
 EXTRA_ARGS = (f"--permission-mode acceptEdits --no-session-persistence --strict-mcp-config --output-format json "
               f"--settings '{SETTINGS_JSON}'")
@@ -110,8 +115,9 @@ def agent_flag_errors(value: str | None = None, executable: str | None = None) -
     deny = perms.get("deny") or []
     if REQUIRED_DENY not in deny:
         errors.append(f"--settings permissions.deny must include {REQUIRED_DENY}")
-    if perms.get("allow"):
-        errors.append(f"--settings permissions.allow must be empty; found {perms.get('allow')}")
+    if perms.get("allow") != [REQUIRED_ALLOW]:
+        errors.append(f"--settings permissions.allow must be exactly [\"{REQUIRED_ALLOW}\"] (the agents' drafts go "
+                      f"there; copy the flags from the README again); found {perms.get('allow')}")
     return errors
 
 
@@ -139,6 +145,9 @@ def tmpdir_errors(*, fresh: bool = False) -> list[str]:
     p = Path(raw)
     if not p.is_absolute() or not p.is_dir():
         return [f"TMPDIR {raw} is not an absolute path to a directory"]
+    if not TMPDIR_PATTERN.fullmatch(raw) or p.is_symlink():
+        return [f"TMPDIR {raw} must be a directory /tmp/whet.XXXXXX, the only place the agents may write their drafts; "
+                "run Whetstone with TMPDIR=$(mktemp -d /tmp/whet.XXXXXX)"]
     if fresh and any(p.iterdir()):
         return [f"TMPDIR {raw} is not empty; give each run a fresh one: TMPDIR=$(mktemp -d /tmp/whet.XXXXXX)"]
     return []

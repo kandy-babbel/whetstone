@@ -52,7 +52,8 @@ files.
 - `agent_flag_errors`: what `SPECKIT_INTEGRATION_CLAUDE_EXTRA_ARGS` must contain
   (the repository README's table), and that `SPECKIT_INTEGRATION_CLAUDE_EXECUTABLE`
   is unset.
-- `tmpdir_errors`: `TMPDIR` set, absolute, at most 60 bytes, and empty at `setup`.
+- `tmpdir_errors`: `TMPDIR` set, a directory `/tmp/whet.*` (what the allow rule
+  `Edit(//tmp/whet.*/**)` covers), not a link, at most 60 bytes, and empty at `setup`.
 - `pyc_errors`: `PYTHONPYCACHEPREFIX` set, absolute, outside the working directory
   and `TMPDIR`.
 - `integrity_errors`: `git status` of `.claude/` and `.specify/` shows nothing but

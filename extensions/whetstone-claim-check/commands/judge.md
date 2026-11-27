@@ -19,6 +19,7 @@ claim file says where the checkout is: your working directory, or the clone in
 `repo/` next to `.review/` (then read files under `repo/`, run git as
 `git -C repo ...`, and cite paths without the `repo/` prefix).
 
-The repository is read-only for you; your draft goes under `$TMPDIR`. Your final
+The repository is read-only for you. Write your draft with the Write tool, under
+`$TMPDIR` (find it with `echo $TMPDIR`); the shell refuses JSON in a heredoc. Your final
 answer is the draft's content: one JSON document, no code fence, nothing else.
 Never run `git push`, `gh`, `curl` or anything that contacts a remote service.
